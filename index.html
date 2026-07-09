@@ -362,6 +362,28 @@
     .campanha-progress-bar    { flex: 1; }
     .lead-ts { font-size: 11px; color: var(--text-muted); margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
 
+    /* ── Toggle Leads / Pipeline ─────────────────────────────────── */
+    .camp-toggle { display:flex; gap:2px; background:var(--surface-2); border-radius:6px; padding:2px; flex-shrink:0; }
+    .camp-toggle-btn { padding:4px 14px; border-radius:4px; border:none; background:transparent; color:var(--text-muted); font-size:12px; cursor:pointer; transition:all 0.15s; }
+    .camp-toggle-btn.active { background:var(--gold); color:#0f0f0f; font-weight:600; }
+
+    /* ── Pipeline Kanban ─────────────────────────────────────────── */
+    .pipeline-wrapper { overflow-x:auto; padding:16px; flex:1; }
+    .pipeline-board { display:flex; gap:12px; min-width:max-content; align-items:flex-start; }
+    .pipeline-col { width:220px; flex-shrink:0; }
+    .pipeline-col-title { font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.07em; padding:6px 4px 10px; border-bottom:2px solid var(--border); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
+    .pipeline-col-count { font-size:11px; font-weight:600; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:1px 7px; }
+    .pipeline-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px; margin-bottom:8px; cursor:pointer; transition:border-color 0.15s; }
+    .pipeline-card:hover { border-color:var(--gold-dim); }
+    .pipeline-card.selected { border-color:var(--gold); background:var(--surface-2); }
+    .pipeline-card-name { font-size:13px; font-weight:500; color:var(--text); margin-bottom:2px; }
+    .pipeline-card-phone { font-size:11px; color:var(--text-muted); }
+    .pipeline-card-date { font-size:10px; color:var(--text-muted); margin-top:6px; padding-top:6px; border-top:1px solid var(--border); }
+    .pipeline-estagio-btns { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+    .pipeline-estagio-btn { font-size:11px; padding:4px 8px; border-radius:4px; border:1px solid var(--border); background:var(--bg); color:var(--text-muted); cursor:pointer; transition:all 0.12s; }
+    .pipeline-estagio-btn:hover { border-color:var(--gold-dim); color:var(--text); }
+    .pipeline-estagio-btn.current { background:var(--gold); border-color:var(--gold); color:#0f0f0f; font-weight:600; }
+
     /* ── Mobile responsivo ──────────────────────────────────────── */
     @media (max-width: 768px) {
       .header { padding: 0 12px; }
@@ -1185,19 +1207,30 @@
 </div>
 
 <!-- ── Página cheia: Campanha (painel de trabalho) ───────────────── -->
-<div class="fullpage-overlay" id="pageCampanha">
+<div class="fullpage-overlay" id="pageCampanha" style="display:flex;flex-direction:column">
   <div class="campanha-progress-header">
     <button class="btn btn-ghost" id="btnBackCampanha" style="flex-shrink:0">&#x2190; Voltar</button>
     <div style="font-weight:600;font-size:15px;flex-shrink:0" id="campanhaNomeHeader"></div>
+    <div class="camp-toggle">
+      <button class="camp-toggle-btn active" id="btnViewLeads" onclick="setCampanhaView('leads')">Leads</button>
+      <button class="camp-toggle-btn" id="btnViewPipeline" onclick="setCampanhaView('pipeline')">Pipeline</button>
+    </div>
     <div class="campanha-progress-bar">
       <div class="progress-bar-wrap"><div class="progress-bar-fill" id="campanhaProgressFill" style="width:0%"></div></div>
     </div>
     <div class="campanha-progress-text" id="campanhaProgressText">0 / 0</div>
   </div>
-  <div class="campanha-page-grid">
+  <!-- Vista: Leads -->
+  <div id="campViewLeads" class="campanha-page-grid" style="flex:1">
     <div class="lead-list-panel" id="leadListPanel"></div>
     <div class="lead-detail-panel" id="leadDetailPanel">
       <div style="color:var(--text-muted);font-size:14px;margin-top:40px;text-align:center">← Selecione um lead para começar</div>
+    </div>
+  </div>
+  <!-- Vista: Pipeline -->
+  <div id="campViewPipeline" style="display:none;flex:1;overflow:hidden">
+    <div class="pipeline-wrapper">
+      <div class="pipeline-board" id="pipelineBoard"></div>
     </div>
   </div>
 </div>
@@ -1222,12 +1255,20 @@
           <label>Nome da campanha</label>
           <input type="text" id="campNome" placeholder="Ex: Lançamento Residencial Norte">
         </div>
-        <div class="form-group" style="grid-column:1/-1" id="campStatusWrap" style="display:none">
+        <div class="form-group" style="grid-column:1/-1" id="campStatusWrap">
           <label>Status</label>
           <select id="campStatus">
             <option value="ativa">Ativa</option>
             <option value="concluida">Concluída</option>
           </select>
+        </div>
+        <div id="campEditCSVWrap" class="form-group" style="grid-column:1/-1;display:none">
+          <label>Substituir lista de leads <span style="font-size:11px;color:var(--text-muted)">(opcional — substitui todos os leads atuais)</span></label>
+          <div class="photo-drop-zone" id="campEditCSVZone">
+            <input type="file" id="campEditCSVInput" accept=".csv,.txt,.xlsx,.xls">
+            <div id="campEditCSVPreview" style="text-align:center;color:var(--text-muted);font-size:13px;pointer-events:none">Clique ou arraste o novo arquivo aqui</div>
+          </div>
+          <div id="campEditCorretoresInfo" style="font-size:12px;color:var(--text-muted);margin-top:6px"></div>
         </div>
         <div id="campCorretoresWrap" class="form-group" style="grid-column:1/-1">
           <label>Corretores responsáveis</label>
@@ -3801,6 +3842,8 @@
       nome: r.nome, telefone: r.telefone, classificacao: r.classificacao,
       anotacoes: r.anotacoes || '', clienteId: r.cliente_id,
       classificadoEm: r.classificado_em,
+      crmEstagio: r.crm_estagio || null,
+      crmData: r.crm_data_estagio || null,
     }));
   }
 
@@ -3876,6 +3919,68 @@
     campanhaAtualId = null;
     campanhaLeads   = [];
     leadAtivoId     = null;
+  }
+
+  // ── Pipeline CRM ─────────────────────────────────────────────
+  const pipelineEstagios = [
+    { key:'tem_interesse', label:'Tem interesse' },
+    { key:'cadastrado',    label:'Cadastrado' },
+    { key:'em_analise',    label:'Em análise' },
+    { key:'em_contrato',   label:'Em contrato' },
+    { key:'vendido',       label:'Vendido' },
+  ];
+  let pipelineLeadSelecionado = null;
+
+  function setCampanhaView(view) {
+    const isLeads = view === 'leads';
+    document.getElementById('campViewLeads').style.display   = isLeads ? '' : 'none';
+    document.getElementById('campViewPipeline').style.display = isLeads ? 'none' : '';
+    document.getElementById('btnViewLeads').classList.toggle('active', isLeads);
+    document.getElementById('btnViewPipeline').classList.toggle('active', !isLeads);
+    if (!isLeads) renderPipeline();
+  }
+
+  function renderPipeline() {
+    const board = document.getElementById('pipelineBoard');
+    const quentes = campanhaLeads.filter(l => l.crmEstagio);
+    board.innerHTML = pipelineEstagios.map(est => {
+      const leads = quentes.filter(l => l.crmEstagio === est.key);
+      const cards = leads.map(l => {
+        const dataFmt = l.crmData ? new Date(l.crmData).toLocaleDateString('pt-BR') + ' ' + new Date(l.crmData).toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'}) : '';
+        const isSel = pipelineLeadSelecionado === l.id;
+        const estagiosBtns = isSel ? `<div class="pipeline-estagio-btns">${
+          pipelineEstagios.map(e =>
+            `<button class="pipeline-estagio-btn ${e.key === est.key ? 'current' : ''}"
+                     onclick="event.stopPropagation();moverEstagioPipeline('${l.id}','${e.key}')">${e.label}</button>`
+          ).join('')}</div>` : '';
+        return `<div class="pipeline-card ${isSel ? 'selected' : ''}" onclick="selecionarCardPipeline('${l.id}')">
+          <div class="pipeline-card-name">${escHtml(l.nome)}</div>
+          <div class="pipeline-card-phone">${escHtml(l.telefone)}</div>
+          ${dataFmt ? `<div class="pipeline-card-date">Desde ${dataFmt}</div>` : ''}
+          ${estagiosBtns}
+        </div>`;
+      }).join('') || `<div style="font-size:12px;color:var(--text-muted);padding:8px 4px">—</div>`;
+      return `<div class="pipeline-col">
+        <div class="pipeline-col-title">${est.label}<span class="pipeline-col-count">${leads.length}</span></div>
+        <div>${cards}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function selecionarCardPipeline(leadId) {
+    pipelineLeadSelecionado = pipelineLeadSelecionado === leadId ? null : leadId;
+    renderPipeline();
+  }
+
+  async function moverEstagioPipeline(leadId, novoEstagio) {
+    const lead = campanhaLeads.find(l => l.id === leadId);
+    if (!lead) return;
+    const agora = new Date().toISOString();
+    await supabaseClient.from('campanha_leads').update({ crm_estagio: novoEstagio, crm_data_estagio: agora }).eq('id', leadId);
+    lead.crmEstagio = novoEstagio;
+    lead.crmData = agora;
+    pipelineLeadSelecionado = null;
+    renderPipeline();
   }
 
   function fecharDetalheLeadMobile() {
@@ -3970,7 +4075,17 @@
     await salvarAnotacao(leadId);
 
     const agora = new Date().toISOString();
-    await supabaseClient.from('campanha_leads').update({ classificacao, classificado_em: agora }).eq('id', leadId);
+    const updatePayload = { classificacao, classificado_em: agora };
+
+    // Inserir no pipeline CRM automaticamente ao classificar como quente
+    if (['interesse','whatsapp'].includes(classificacao) && !lead.crmEstagio) {
+      updatePayload.crm_estagio = 'tem_interesse';
+      updatePayload.crm_data_estagio = agora;
+      lead.crmEstagio = 'tem_interesse';
+      lead.crmData = agora;
+    }
+
+    await supabaseClient.from('campanha_leads').update(updatePayload).eq('id', leadId);
     lead.classificacao = classificacao;
     lead.classificadoEm = agora;
 
@@ -4104,10 +4219,20 @@
     document.getElementById('campStatusWrap').style.display = '';
     document.getElementById('campCorretoresWrap').style.display = 'none';
     document.getElementById('campCSVWrap').style.display = 'none';
+    document.getElementById('campEditCSVWrap').style.display = '';
+    document.getElementById('campEditCSVPreview').textContent = 'Clique ou arraste o novo arquivo aqui';
+    document.getElementById('campEditCSVInput').value = '';
 
     const { data: c } = await supabaseClient.from('campanhas').select('*').eq('id', id).single();
     document.getElementById('campNome').value = c?.nome || '';
     document.getElementById('campStatus').value = c?.status || 'ativa';
+
+    // Mostrar quantos corretores estão na campanha (para round-robin ao trocar leads)
+    const { data: corrs } = await supabaseClient.from('campanha_corretores')
+      .select('profiles(nome)').eq('campanha_id', id);
+    const nomes = (corrs || []).map(r => r.profiles?.nome).filter(Boolean);
+    document.getElementById('campEditCorretoresInfo').textContent =
+      nomes.length ? `Corretores: ${nomes.join(', ')}` : '';
 
     const emps = await loadEmpreendimentos();
     const sel = document.getElementById('campEmpreendimento');
@@ -4133,6 +4258,39 @@
     // ── Modo edição (admin)
     if (editingCampanhaId) {
       const status = document.getElementById('campStatus').value;
+
+      // Se foi carregado um novo CSV, substituir todos os leads
+      if (campanhaCsvLeads.length > 0) {
+        // Buscar corretores atribuídos à campanha
+        const { data: corrs } = await supabaseClient
+          .from('campanha_corretores')
+          .select('corretor_id')
+          .eq('campanha_id', editingCampanhaId);
+        const corretoresIds = (corrs || []).map(r => r.corretor_id);
+        if (!corretoresIds.length) {
+          alert('Nenhum corretor encontrado para essa campanha.'); return;
+        }
+        // Apagar leads existentes
+        const { error: delErr } = await supabaseClient
+          .from('campanha_leads')
+          .delete()
+          .eq('campanha_id', editingCampanhaId);
+        if (delErr) { alert('Erro ao apagar leads antigos: ' + delErr.message); return; }
+        // Inserir novos leads em round-robin
+        const leadsPayload = campanhaCsvLeads.map((l, i) => ({
+          campanha_id: editingCampanhaId,
+          corretor_id: corretoresIds[i % corretoresIds.length],
+          nome: l.nome, telefone: l.telefone,
+        }));
+        const BATCH = 200;
+        for (let i = 0; i < leadsPayload.length; i += BATCH) {
+          const { error: insErr } = await supabaseClient
+            .from('campanha_leads')
+            .insert(leadsPayload.slice(i, i + BATCH));
+          if (insErr) { alert('Erro ao inserir leads: ' + insErr.message); return; }
+        }
+      }
+
       const { error } = await supabaseClient.from('campanhas')
         .update({ nome, empreendimento_id: empId, status })
         .eq('id', editingCampanhaId);
@@ -4174,28 +4332,19 @@
   }
 
   // ── CSV parser ───────────────────────────────────────────────
-  function lerArquivoLeads(file) {
-    const isXlsx = /\.(xlsx|xls)$/i.test(file.name)
-      || file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      || file.type === 'application/vnd.ms-excel';
-    const reader = new FileReader();
-    if (isXlsx) {
-      reader.onload = e => parseCampanhaXLSX(e.target.result);
-      reader.readAsArrayBuffer(file);
-    } else {
-      reader.onload = e => parseCampanhaCSV(e.target.result);
-      reader.readAsText(file, 'UTF-8');
-    }
-  }
-
   document.getElementById('campCSVInput').addEventListener('change', function() {
     const file = this.files[0];
-    if (file) lerArquivoLeads(file);
+    if (file) lerArquivoLeads(file, 'campCSVPreview');
   });
 
-  function parseCampanhaXLSX(arrayBuffer) {
+  document.getElementById('campEditCSVInput').addEventListener('change', function() {
+    const file = this.files[0];
+    if (file) lerArquivoLeads(file, 'campEditCSVPreview');
+  });
+
+  function parseCampanhaXLSX(arrayBuffer, previewId) {
     if (typeof XLSX === 'undefined') {
-      document.getElementById('campCSVPreview').textContent = '⚠ Biblioteca XLSX não carregou. Verifique a conexão e recarregue a página.';
+      document.getElementById(previewId).textContent = '⚠ Biblioteca XLSX não carregou. Verifique a conexão e recarregue a página.';
       return;
     }
     try {
@@ -4211,16 +4360,16 @@
         const telefone = col1.replace(/\D/g, '');
         if (nome && telefone) campanhaCsvLeads.push({ nome, telefone });
       });
-      document.getElementById('campCSVPreview').textContent =
+      document.getElementById(previewId).textContent =
         campanhaCsvLeads.length
           ? `✓ ${campanhaCsvLeads.length} leads importados`
           : '⚠ Nenhum lead válido. Coluna A = nome, Coluna B = telefone';
     } catch(e) {
-      document.getElementById('campCSVPreview').textContent = '⚠ Erro ao ler o arquivo: ' + e.message;
+      document.getElementById(previewId).textContent = '⚠ Erro ao ler o arquivo: ' + e.message;
     }
   }
 
-  function parseCampanhaCSV(text) {
+  function parseCampanhaCSV(text, previewId) {
     const lines = text.split(/\r?\n/).filter(l => l.trim());
     campanhaCsvLeads = [];
     lines.forEach((line, i) => {
@@ -4230,20 +4379,44 @@
       const telefone = (parts[1] || '').replace(/^"|"$/g,'').trim().replace(/\D/g,'');
       if (nome && telefone) campanhaCsvLeads.push({ nome, telefone });
     });
-    document.getElementById('campCSVPreview').textContent =
+    document.getElementById(previewId).textContent =
       campanhaCsvLeads.length
         ? `✓ ${campanhaCsvLeads.length} leads importados`
         : '⚠ Nenhum lead válido encontrado. Verifique o formato: nome,telefone';
   }
 
-  // Drag & drop no CSV zone
+  function lerArquivoLeads(file, previewId) {
+    const isXlsx = /\.(xlsx|xls)$/i.test(file.name)
+      || file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      || file.type === 'application/vnd.ms-excel';
+    const reader = new FileReader();
+    if (isXlsx) {
+      reader.onload = e => parseCampanhaXLSX(e.target.result, previewId);
+      reader.readAsArrayBuffer(file);
+    } else {
+      reader.onload = e => parseCampanhaCSV(e.target.result, previewId);
+      reader.readAsText(file, 'UTF-8');
+    }
+  }
+
+  // Drag & drop no CSV zone (criação)
   const csvZone = document.getElementById('campCSVZone');
   csvZone.addEventListener('dragover', e => { e.preventDefault(); csvZone.style.borderColor = 'var(--gold)'; });
   csvZone.addEventListener('dragleave', () => { csvZone.style.borderColor = ''; });
   csvZone.addEventListener('drop', e => {
     e.preventDefault(); csvZone.style.borderColor = '';
     const file = e.dataTransfer.files[0];
-    if (file) lerArquivoLeads(file);
+    if (file) lerArquivoLeads(file, 'campCSVPreview');
+  });
+
+  // Drag & drop no CSV zone (edição)
+  const csvEditZone = document.getElementById('campEditCSVZone');
+  csvEditZone.addEventListener('dragover', e => { e.preventDefault(); csvEditZone.style.borderColor = 'var(--gold)'; });
+  csvEditZone.addEventListener('dragleave', () => { csvEditZone.style.borderColor = ''; });
+  csvEditZone.addEventListener('drop', e => {
+    e.preventDefault(); csvEditZone.style.borderColor = '';
+    const file = e.dataTransfer.files[0];
+    if (file) lerArquivoLeads(file, 'campEditCSVPreview');
   });
 
   // ── Eventos de campanha ──────────────────────────────────────
