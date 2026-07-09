@@ -7,6 +7,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230f0f0f'/%3E%3Crect x='3.5' y='3.5' width='25' height='25' rx='4' fill='none' stroke='%23c9a84c' stroke-width='2'/%3E%3Ctext x='16' y='21' font-family='Georgia,serif' font-size='13' font-weight='700' fill='%23c9a84c' text-anchor='middle'%3EMI%3C/text%3E%3C/svg%3E">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -1197,7 +1198,7 @@
         <div class="form-group" style="grid-column:1/-1">
           <label>Lista de leads (CSV: nome,telefone — uma linha por lead)</label>
           <div class="photo-drop-zone" id="campCSVZone">
-            <input type="file" id="campCSVInput" accept=".csv,.txt">
+            <input type="file" id="campCSVInput" accept=".csv,.txt,.xlsx,.xls">
             <div id="campCSVPreview" style="text-align:center;color:var(--text-muted);font-size:13px;pointer-events:none">Clique ou arraste o arquivo CSV aqui</div>
           </div>
         </div>
@@ -4049,16 +4050,42 @@
   document.getElementById('campCSVInput').addEventListener('change', function() {
     const file = this.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = e => parseCampanhaCSV(e.target.result);
-    reader.readAsText(file, 'UTF-8');
+    const isXlsx = /\.(xlsx|xls)$/i.test(file.name);
+    if (isXlsx) {
+      const reader = new FileReader();
+      reader.onload = e => parseCampanhaXLSX(e.target.result);
+      reader.readAsArrayBuffer(file);
+    } else {
+      const reader = new FileReader();
+      reader.onload = e => parseCampanhaCSV(e.target.result);
+      reader.readAsText(file, 'UTF-8');
+    }
   });
+
+  function parseCampanhaXLSX(arrayBuffer) {
+    const wb = XLSX.read(arrayBuffer, { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+    campanhaCsvLeads = [];
+    rows.forEach((row, i) => {
+      const col0 = String(row[0] || '').trim();
+      const col1 = String(row[1] || '').trim();
+      // Pular cabeçalho
+      if (i === 0 && /nome|telefone|phone|contato/i.test(col0)) return;
+      const nome = col0;
+      const telefone = col1.replace(/\D/g, '');
+      if (nome && telefone) campanhaCsvLeads.push({ nome, telefone });
+    });
+    document.getElementById('campCSVPreview').textContent =
+      campanhaCsvLeads.length
+        ? `✓ ${campanhaCsvLeads.length} leads importados`
+        : '⚠ Nenhum lead válido. Coluna A = nome, Coluna B = telefone';
+  }
 
   function parseCampanhaCSV(text) {
     const lines = text.split(/\r?\n/).filter(l => l.trim());
     campanhaCsvLeads = [];
     lines.forEach((line, i) => {
-      // Pular cabeçalho se a primeira linha contiver "nome" ou "telefone"
       if (i === 0 && /nome|telefone|phone/i.test(line)) return;
       const parts = line.split(',');
       const nome = (parts[0] || '').replace(/^"|"$/g,'').trim();
