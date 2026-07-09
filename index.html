@@ -316,6 +316,8 @@
 
     .campanha-page-grid  { display: grid; grid-template-columns: 280px 1fr; height: calc(100vh - 56px); overflow: hidden; }
     .lead-list-panel     { border-right: 1px solid var(--border); overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 4px; }
+    .lead-search { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); padding: 8px 10px; font-size: 13px; font-family: inherit; flex-shrink: 0; margin-bottom: 4px; }
+    .lead-search:focus { outline: none; border-color: var(--gold-dim); }
     .lead-detail-panel   { overflow-y: auto; padding: 24px; }
 
     .lead-list-btn {
@@ -1239,7 +1241,10 @@
   </div>
   <!-- Vista: Leads -->
   <div id="campViewLeads" class="campanha-page-grid">
-    <div class="lead-list-panel" id="leadListPanel"></div>
+    <div class="lead-list-panel" id="leadListPanel">
+      <input type="text" class="lead-search" id="leadSearchInput" placeholder="🔍 Buscar lead…" oninput="filtrarLeads(this.value)">
+      <div id="leadListItems" style="display:flex;flex-direction:column;gap:4px"></div>
+    </div>
     <div class="lead-detail-panel" id="leadDetailPanel">
       <div style="color:var(--text-muted);font-size:14px;margin-top:40px;text-align:center">← Selecione um lead para começar</div>
     </div>
@@ -3860,7 +3865,7 @@
       classificadoEm: r.classificado_em,
       crmEstagio: r.crm_estagio || null,
       crmData: r.crm_data_estagio || null,
-    }));
+    })).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
   }
 
   async function loadAllProfiles() {
@@ -3918,6 +3923,9 @@
   async function openCampanhaPage(id) {
     campanhaAtualId = id;
     leadAtivoId = null;
+    leadFiltro = '';
+    const searchEl = document.getElementById('leadSearchInput');
+    if (searchEl) searchEl.value = '';
     campanhaLeads = await loadLeadsDaCampanha(id);
 
     // Buscar nome da campanha
@@ -4033,6 +4041,13 @@
       '<div style="color:var(--text-muted);font-size:14px;margin-top:40px;text-align:center">← Selecione um lead para começar</div>';
   }
 
+  let leadFiltro = '';
+
+  function filtrarLeads(texto) {
+    leadFiltro = texto;
+    renderLeadList();
+  }
+
   function renderLeadList() {
     const total = campanhaLeads.length;
     const done  = campanhaLeads.filter(l => l.classificacao).length;
@@ -4040,12 +4055,20 @@
     document.getElementById('campanhaProgressFill').style.width = pct + '%';
     document.getElementById('campanhaProgressText').textContent = `${done} / ${total}`;
 
-    const panel = document.getElementById('leadListPanel');
+    const items = document.getElementById('leadListItems');
     if (!campanhaLeads.length) {
-      panel.innerHTML = '<div style="padding:24px 12px;color:var(--text-muted);font-size:13px;text-align:center">Nenhum lead nesta campanha.</div>';
+      items.innerHTML = '<div style="padding:24px 12px;color:var(--text-muted);font-size:13px;text-align:center">Nenhum lead nesta campanha.</div>';
       return;
     }
-    panel.innerHTML = campanhaLeads.map(l => `
+    const filtro = leadFiltro.trim().toLowerCase();
+    const visiveis = filtro
+      ? campanhaLeads.filter(l => l.nome.toLowerCase().includes(filtro) || l.telefone.includes(filtro))
+      : campanhaLeads;
+    if (!visiveis.length) {
+      items.innerHTML = '<div style="padding:24px 12px;color:var(--text-muted);font-size:13px;text-align:center">Nenhum lead encontrado.</div>';
+      return;
+    }
+    items.innerHTML = visiveis.map(l => `
       <button class="lead-list-btn ${l.classificacao ? 'cl-'+l.classificacao : ''} ${l.id === leadAtivoId ? 'active' : ''}"
               onclick="openLeadDetail('${l.id}')">
         <div class="lead-dot"></div>
@@ -4193,9 +4216,10 @@
     if (!lead) return;
     const agora = new Date().toISOString();
     const novaClassif = lead.classificacao === classificacao ? null : classificacao;
-    await supabaseClient.from('campanha_leads')
+    const { error } = await supabaseClient.from('campanha_leads')
       .update({ classificacao: novaClassif, classificado_em: novaClassif ? agora : null })
       .eq('id', leadId);
+    if (error) { alert('Erro ao salvar a etapa: ' + error.message); return; }
     lead.classificacao = novaClassif;
     lead.classificadoEm = novaClassif ? agora : null;
     openLeadDetail(leadId);
