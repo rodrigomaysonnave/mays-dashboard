@@ -1207,7 +1207,7 @@
 </div>
 
 <!-- ── Página cheia: Campanha (painel de trabalho) ───────────────── -->
-<div class="fullpage-overlay" id="pageCampanha" style="display:flex;flex-direction:column">
+<div class="fullpage-overlay" id="pageCampanha" style="flex-direction:column">
   <div class="campanha-progress-header">
     <button class="btn btn-ghost" id="btnBackCampanha" style="flex-shrink:0">&#x2190; Voltar</button>
     <div style="font-weight:600;font-size:15px;flex-shrink:0" id="campanhaNomeHeader"></div>
@@ -3911,11 +3911,15 @@
     renderLeadList();
     document.getElementById('leadDetailPanel').innerHTML = '<div style="color:var(--text-muted);font-size:14px;margin-top:40px;text-align:center">← Selecione um lead para começar</div>';
 
-    document.getElementById('pageCampanha').classList.add('open');
+    const pg = document.getElementById('pageCampanha');
+    pg.classList.add('open');
+    pg.style.display = 'flex';
   }
 
   function closeCampanhaPage() {
-    document.getElementById('pageCampanha').classList.remove('open');
+    const pg = document.getElementById('pageCampanha');
+    pg.classList.remove('open');
+    pg.style.display = '';
     campanhaAtualId = null;
     campanhaLeads   = [];
     leadAtivoId     = null;
