@@ -1198,7 +1198,7 @@
         <div class="form-group" style="grid-column:1/-1">
           <label>Lista de leads (CSV: nome,telefone — uma linha por lead)</label>
           <div class="photo-drop-zone" id="campCSVZone">
-            <input type="file" id="campCSVInput" accept=".csv,.txt,.xlsx,.xls">
+            <input type="file" id="campCSVInput" accept=".csv,.txt,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv">
             <div id="campCSVPreview" style="text-align:center;color:var(--text-muted);font-size:13px;pointer-events:none">Clique ou arraste o arquivo CSV aqui</div>
           </div>
         </div>
@@ -4047,39 +4047,50 @@
   }
 
   // ── CSV parser ───────────────────────────────────────────────
-  document.getElementById('campCSVInput').addEventListener('change', function() {
-    const file = this.files[0];
-    if (!file) return;
-    const isXlsx = /\.(xlsx|xls)$/i.test(file.name);
+  function lerArquivoLeads(file) {
+    const isXlsx = /\.(xlsx|xls)$/i.test(file.name)
+      || file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      || file.type === 'application/vnd.ms-excel';
+    const reader = new FileReader();
     if (isXlsx) {
-      const reader = new FileReader();
       reader.onload = e => parseCampanhaXLSX(e.target.result);
       reader.readAsArrayBuffer(file);
     } else {
-      const reader = new FileReader();
       reader.onload = e => parseCampanhaCSV(e.target.result);
       reader.readAsText(file, 'UTF-8');
     }
+  }
+
+  document.getElementById('campCSVInput').addEventListener('change', function() {
+    const file = this.files[0];
+    if (file) lerArquivoLeads(file);
   });
 
   function parseCampanhaXLSX(arrayBuffer) {
-    const wb = XLSX.read(arrayBuffer, { type: 'array' });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-    campanhaCsvLeads = [];
-    rows.forEach((row, i) => {
-      const col0 = String(row[0] || '').trim();
-      const col1 = String(row[1] || '').trim();
-      // Pular cabeçalho
-      if (i === 0 && /nome|telefone|phone|contato/i.test(col0)) return;
-      const nome = col0;
-      const telefone = col1.replace(/\D/g, '');
-      if (nome && telefone) campanhaCsvLeads.push({ nome, telefone });
-    });
-    document.getElementById('campCSVPreview').textContent =
-      campanhaCsvLeads.length
-        ? `✓ ${campanhaCsvLeads.length} leads importados`
-        : '⚠ Nenhum lead válido. Coluna A = nome, Coluna B = telefone';
+    if (typeof XLSX === 'undefined') {
+      document.getElementById('campCSVPreview').textContent = '⚠ Biblioteca XLSX não carregou. Verifique a conexão e recarregue a página.';
+      return;
+    }
+    try {
+      const wb = XLSX.read(arrayBuffer, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      campanhaCsvLeads = [];
+      rows.forEach((row, i) => {
+        const col0 = String(row[0] || '').trim();
+        const col1 = String(row[1] || '').trim();
+        if (i === 0 && /nome|telefone|phone|contato/i.test(col0)) return;
+        const nome = col0;
+        const telefone = col1.replace(/\D/g, '');
+        if (nome && telefone) campanhaCsvLeads.push({ nome, telefone });
+      });
+      document.getElementById('campCSVPreview').textContent =
+        campanhaCsvLeads.length
+          ? `✓ ${campanhaCsvLeads.length} leads importados`
+          : '⚠ Nenhum lead válido. Coluna A = nome, Coluna B = telefone';
+    } catch(e) {
+      document.getElementById('campCSVPreview').textContent = '⚠ Erro ao ler o arquivo: ' + e.message;
+    }
   }
 
   function parseCampanhaCSV(text) {
@@ -4105,10 +4116,7 @@
   csvZone.addEventListener('drop', e => {
     e.preventDefault(); csvZone.style.borderColor = '';
     const file = e.dataTransfer.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => parseCampanhaCSV(ev.target.result);
-    reader.readAsText(file, 'UTF-8');
+    if (file) lerArquivoLeads(file);
   });
 
   // ── Eventos de campanha ──────────────────────────────────────
