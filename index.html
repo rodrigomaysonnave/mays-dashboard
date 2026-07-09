@@ -368,7 +368,8 @@
     .camp-toggle-btn.active { background:var(--gold); color:#0f0f0f; font-weight:600; }
 
     /* ── Pipeline Kanban ─────────────────────────────────────────── */
-    .pipeline-wrapper { overflow-x:auto; padding:16px; flex:1; }
+    #campViewPipeline { overflow:hidden; }
+    .pipeline-wrapper { overflow-x:auto; overflow-y:auto; padding:16px; height:100%; box-sizing:border-box; }
     .pipeline-board { display:flex; gap:12px; min-width:max-content; align-items:flex-start; }
     .pipeline-col { width:220px; flex-shrink:0; }
     .pipeline-col-title { font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.07em; padding:6px 4px 10px; border-bottom:2px solid var(--border); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
@@ -1207,7 +1208,7 @@
 </div>
 
 <!-- ── Página cheia: Campanha (painel de trabalho) ───────────────── -->
-<div class="fullpage-overlay" id="pageCampanha" style="flex-direction:column">
+<div class="fullpage-overlay" id="pageCampanha">
   <div class="campanha-progress-header">
     <button class="btn btn-ghost" id="btnBackCampanha" style="flex-shrink:0">&#x2190; Voltar</button>
     <div style="font-weight:600;font-size:15px;flex-shrink:0" id="campanhaNomeHeader"></div>
@@ -1221,15 +1222,15 @@
     <div class="campanha-progress-text" id="campanhaProgressText">0 / 0</div>
   </div>
   <!-- Vista: Leads -->
-  <div id="campViewLeads" class="campanha-page-grid" style="flex:1">
+  <div id="campViewLeads" class="campanha-page-grid">
     <div class="lead-list-panel" id="leadListPanel"></div>
     <div class="lead-detail-panel" id="leadDetailPanel">
       <div style="color:var(--text-muted);font-size:14px;margin-top:40px;text-align:center">← Selecione um lead para começar</div>
     </div>
   </div>
   <!-- Vista: Pipeline -->
-  <div id="campViewPipeline" style="display:none;flex:1;flex-direction:column;overflow:hidden">
-    <div class="pipeline-wrapper" style="flex:1;overflow:auto">
+  <div id="campViewPipeline" style="display:none">
+    <div class="pipeline-wrapper">
       <div class="pipeline-board" id="pipelineBoard"></div>
     </div>
   </div>
@@ -3912,13 +3913,11 @@
     document.getElementById('leadDetailPanel').innerHTML = '<div style="color:var(--text-muted);font-size:14px;margin-top:40px;text-align:center">← Selecione um lead para começar</div>';
 
     const pg = document.getElementById('pageCampanha');
-    pg.classList.add('open');
-    pg.style.display = 'flex';
+    pg.style.display = 'block';
   }
 
   function closeCampanhaPage() {
     const pg = document.getElementById('pageCampanha');
-    pg.classList.remove('open');
     pg.style.display = '';
     campanhaAtualId = null;
     campanhaLeads   = [];
@@ -3937,8 +3936,18 @@
 
   function setCampanhaView(view) {
     const isLeads = view === 'leads';
-    document.getElementById('campViewLeads').style.display    = isLeads ? 'grid' : 'none';
-    document.getElementById('campViewPipeline').style.display = isLeads ? 'none' : 'flex';
+    const leadsEl = document.getElementById('campViewLeads');
+    const pipeEl  = document.getElementById('campViewPipeline');
+    const hh = document.querySelector('.campanha-progress-header').offsetHeight || 56;
+    const viewH = 'calc(100vh - ' + hh + 'px)';
+    leadsEl.style.display = isLeads ? '' : 'none';
+    if (!isLeads) {
+      pipeEl.style.display = 'block';
+      pipeEl.style.height  = viewH;
+    } else {
+      pipeEl.style.display = 'none';
+      pipeEl.style.height  = '';
+    }
     document.getElementById('btnViewLeads').classList.toggle('active', isLeads);
     document.getElementById('btnViewPipeline').classList.toggle('active', !isLeads);
     if (!isLeads) renderPipeline();
@@ -4074,24 +4083,32 @@
     const lead = campanhaLeads.find(l => l.id === leadId);
     if (!lead) return;
 
-    // Salvar anotações pendentes imediatamente
     clearTimeout(obsDebounce);
     await salvarAnotacao(leadId);
 
     const agora = new Date().toISOString();
-    const updatePayload = { classificacao, classificado_em: agora };
+    // Toggle: clicar na mesma classificação remove
+    const novaClassif = lead.classificacao === classificacao ? null : classificacao;
+    const updatePayload = { classificacao: novaClassif, classificado_em: novaClassif ? agora : null };
 
     // Inserir no pipeline CRM automaticamente ao classificar como quente
-    if (['interesse','whatsapp'].includes(classificacao) && !lead.crmEstagio) {
+    if (novaClassif && ['interesse','whatsapp'].includes(novaClassif) && !lead.crmEstagio) {
       updatePayload.crm_estagio = 'tem_interesse';
       updatePayload.crm_data_estagio = agora;
       lead.crmEstagio = 'tem_interesse';
       lead.crmData = agora;
     }
 
-    await supabaseClient.from('campanha_leads').update(updatePayload).eq('id', leadId);
-    lead.classificacao = classificacao;
-    lead.classificadoEm = agora;
+    const { error } = await supabaseClient.from('campanha_leads').update(updatePayload).eq('id', leadId);
+    if (error && updatePayload.crm_estagio) {
+      // Coluna crm_estagio não existe ainda — salvar só a classificação
+      await supabaseClient.from('campanha_leads')
+        .update({ classificacao: novaClassif, classificado_em: updatePayload.classificado_em })
+        .eq('id', leadId);
+    }
+
+    lead.classificacao = novaClassif;
+    lead.classificadoEm = novaClassif ? agora : null;
 
     openLeadDetail(leadId);
     renderLeadList();
