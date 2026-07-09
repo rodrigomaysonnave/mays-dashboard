@@ -1228,8 +1228,8 @@
     </div>
   </div>
   <!-- Vista: Pipeline -->
-  <div id="campViewPipeline" style="display:none;flex:1;overflow:hidden">
-    <div class="pipeline-wrapper">
+  <div id="campViewPipeline" style="display:none;flex:1;flex-direction:column;overflow:hidden">
+    <div class="pipeline-wrapper" style="flex:1;overflow:auto">
       <div class="pipeline-board" id="pipelineBoard"></div>
     </div>
   </div>
@@ -3937,8 +3937,8 @@
 
   function setCampanhaView(view) {
     const isLeads = view === 'leads';
-    document.getElementById('campViewLeads').style.display   = isLeads ? '' : 'none';
-    document.getElementById('campViewPipeline').style.display = isLeads ? 'none' : '';
+    document.getElementById('campViewLeads').style.display    = isLeads ? 'grid' : 'none';
+    document.getElementById('campViewPipeline').style.display = isLeads ? 'none' : 'flex';
     document.getElementById('btnViewLeads').classList.toggle('active', isLeads);
     document.getElementById('btnViewPipeline').classList.toggle('active', !isLeads);
     if (!isLeads) renderPipeline();
