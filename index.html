@@ -1294,7 +1294,10 @@
         </div>
         <div class="form-group">
           <label for="eConstrutora">Construtora</label>
-          <select id="eConstrutora"><option value="">Selecionar</option></select>
+          <div style="display:flex;gap:8px;align-items:center">
+            <select id="eConstrutora" style="flex:1"><option value="">Selecionar</option></select>
+            <button type="button" class="btn btn-ghost" style="flex-shrink:0;padding:0 10px;height:36px;font-size:18px;line-height:1" title="Cadastrar nova construtora" onclick="abrirConstrutoraDoEmpreendimento()">+</button>
+          </div>
         </div>
         <div class="form-group">
           <label for="eStatus">Status</label>
@@ -3709,8 +3712,13 @@
     }
 
     closeConstrutoraModal();
-    await renderConstrutoraCards();
-    setTimeout(() => openConstrutoraPage(savedId), 200);
+    if (construtoraFromEmpreendimento) {
+      construtoraFromEmpreendimento = false;
+      await refreshEConstrutoraSelect(savedId);
+    } else {
+      await renderConstrutoraCards();
+      setTimeout(() => openConstrutoraPage(savedId), 200);
+    }
   }
   function confirmDeleteConstrutora(id) {
     openConfirm(
@@ -4029,6 +4037,20 @@
   // ── Modal de criação de campanha ─────────────────────────────
   let empreendimentoFromCampanha = false;
   let editingCampanhaId = null;
+  let construtoraFromEmpreendimento = false;
+
+  function abrirConstrutoraDoEmpreendimento() {
+    construtoraFromEmpreendimento = true;
+    openConstrutoraModal();
+  }
+
+  async function refreshEConstrutoraSelect(selectId) {
+    const { data } = await supabaseClient.from('construtoras').select('id, nome').order('nome');
+    const sel = document.getElementById('eConstrutora');
+    sel.innerHTML = '<option value="">Selecionar</option>'
+      + (data || []).map(c => `<option value="${c.id}" ${c.id === selectId ? 'selected' : ''}>${escHtml(c.nome)}</option>`).join('');
+    if (selectId) sel.value = selectId;
+  }
 
   function abrirEmpreendimentoDaCampanha() {
     empreendimentoFromCampanha = true;
