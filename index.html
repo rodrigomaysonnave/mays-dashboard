@@ -1202,11 +1202,11 @@
   </div>
 </div>
 
-<!-- ── Modal: Campanha (criação) ────────────────────────────────── -->
+<!-- ── Modal: Campanha (criação / edição) ─────────────────────── -->
 <div class="modal-overlay" id="modalOverlayCampanha">
   <div class="modal" style="max-width:560px">
     <div class="modal-header">
-      <h3>Nova campanha</h3>
+      <h3 id="campModalTitle">Nova campanha</h3>
       <button class="modal-close" id="modalCloseCampanha">&#x2715;</button>
     </div>
     <div class="modal-body">
@@ -1222,11 +1222,18 @@
           <label>Nome da campanha</label>
           <input type="text" id="campNome" placeholder="Ex: Lançamento Residencial Norte">
         </div>
-        <div class="form-group" style="grid-column:1/-1">
+        <div class="form-group" style="grid-column:1/-1" id="campStatusWrap" style="display:none">
+          <label>Status</label>
+          <select id="campStatus">
+            <option value="ativa">Ativa</option>
+            <option value="concluida">Concluída</option>
+          </select>
+        </div>
+        <div id="campCorretoresWrap" class="form-group" style="grid-column:1/-1">
           <label>Corretores responsáveis</label>
           <div id="campCorretoresCheckboxes" style="display:flex;flex-wrap:wrap;gap:8px;padding:8px 0"></div>
         </div>
-        <div class="form-group" style="grid-column:1/-1">
+        <div id="campCSVWrap" class="form-group" style="grid-column:1/-1">
           <label>Lista de leads (CSV: nome,telefone — uma linha por lead)</label>
           <div class="photo-drop-zone" id="campCSVZone">
             <input type="file" id="campCSVInput" accept=".csv,.txt,.xlsx,.xls">
@@ -3823,9 +3830,14 @@
           <div class="card-body">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
               <span class="badge badge-camp-${c.status}">${c.status === 'ativa' ? 'Ativa' : 'Concluída'}</span>
-              ${meu ? `<button class="btn-icon" title="Excluir" onclick="event.stopPropagation();deleteCampanha('${c.id}')">
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 3h10M5 3V2h4v1M3 3l.8 9h6.4L11 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </button>` : ''}
+              <div style="display:flex;gap:4px">
+                ${isAdmin ? `<button class="btn-icon" title="Editar campanha" onclick="event.stopPropagation();editarCampanha('${c.id}')">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9.5 2.5l2 2L4 12H2v-2L9.5 2.5z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>` : ''}
+                ${meu ? `<button class="btn-icon" title="Excluir" onclick="event.stopPropagation();deleteCampanha('${c.id}')">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 3h10M5 3V2h4v1M3 3l.8 9h6.4L11 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>` : ''}
+              </div>
             </div>
             <div style="font-weight:600;font-size:15px;margin-bottom:4px">${escHtml(c.nome)}</div>
             <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">${done} / ${total} leads classificados</div>
@@ -4016,6 +4028,7 @@
 
   // ── Modal de criação de campanha ─────────────────────────────
   let empreendimentoFromCampanha = false;
+  let editingCampanhaId = null;
 
   function abrirEmpreendimentoDaCampanha() {
     empreendimentoFromCampanha = true;
@@ -4032,12 +4045,16 @@
   }
 
   async function openCampanhaModal() {
+    editingCampanhaId = null;
     campanhaCsvLeads = [];
+    document.getElementById('campModalTitle').textContent = 'Nova campanha';
     document.getElementById('campNome').value = '';
     document.getElementById('campCSVPreview').textContent = 'Clique ou arraste o arquivo CSV aqui';
     document.getElementById('campCSVInput').value = '';
+    document.getElementById('campStatusWrap').style.display = 'none';
+    document.getElementById('campCorretoresWrap').style.display = '';
+    document.getElementById('campCSVWrap').style.display = '';
 
-    // Preencher select de empreendimentos
     const emps = await loadEmpreendimentos();
     const sel = document.getElementById('campEmpreendimento');
     sel.innerHTML = '<option value="">Selecionar empreendimento…</option>' +
@@ -4047,7 +4064,6 @@
       if (emp && !document.getElementById('campNome').value) document.getElementById('campNome').value = emp.nome;
     };
 
-    // Preencher checkboxes de corretores
     const profiles = await loadAllProfiles();
     document.getElementById('campCorretoresCheckboxes').innerHTML = profiles.map(p =>
       `<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
@@ -4059,17 +4075,53 @@
     document.getElementById('modalOverlayCampanha').classList.add('open');
   }
 
+  async function editarCampanha(id) {
+    editingCampanhaId = id;
+    campanhaCsvLeads = [];
+    document.getElementById('campModalTitle').textContent = 'Editar campanha';
+    document.getElementById('campStatusWrap').style.display = '';
+    document.getElementById('campCorretoresWrap').style.display = 'none';
+    document.getElementById('campCSVWrap').style.display = 'none';
+
+    const { data: c } = await supabaseClient.from('campanhas').select('*').eq('id', id).single();
+    document.getElementById('campNome').value = c?.nome || '';
+    document.getElementById('campStatus').value = c?.status || 'ativa';
+
+    const emps = await loadEmpreendimentos();
+    const sel = document.getElementById('campEmpreendimento');
+    sel.innerHTML = '<option value="">Selecionar empreendimento…</option>' +
+      emps.map(e => `<option value="${e.id}" ${e.id === c?.empreendimento_id ? 'selected' : ''}>${escHtml(e.nome)}</option>`).join('');
+    sel.onchange = null;
+
+    document.getElementById('modalOverlayCampanha').classList.add('open');
+  }
+
   function closeCampanhaModal() {
     document.getElementById('modalOverlayCampanha').classList.remove('open');
+    editingCampanhaId = null;
     campanhaCsvLeads = [];
   }
 
   async function salvarCampanha() {
     const nome = document.getElementById('campNome').value.trim();
     const empId = document.getElementById('campEmpreendimento').value || null;
-    const corretoresIds = [...document.querySelectorAll('.corretor-check:checked')].map(c => c.value);
 
     if (!nome) { document.getElementById('campNome').focus(); return; }
+
+    // ── Modo edição (admin)
+    if (editingCampanhaId) {
+      const status = document.getElementById('campStatus').value;
+      const { error } = await supabaseClient.from('campanhas')
+        .update({ nome, empreendimento_id: empId, status })
+        .eq('id', editingCampanhaId);
+      if (error) { alert('Erro ao atualizar campanha: ' + error.message); return; }
+      closeCampanhaModal();
+      await renderCampanhasView();
+      return;
+    }
+
+    // ── Modo criação
+    const corretoresIds = [...document.querySelectorAll('.corretor-check:checked')].map(c => c.value);
     if (!campanhaCsvLeads.length) { alert('Importe um CSV com leads antes de salvar.'); return; }
     if (!corretoresIds.length) { alert('Selecione ao menos um corretor.'); return; }
 
