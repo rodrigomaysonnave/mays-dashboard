@@ -3937,22 +3937,30 @@
     const leadsEl = document.getElementById('campViewLeads');
     const pipeEl  = document.getElementById('campViewPipeline');
     leadsEl.style.display = isLeads ? '' : 'none';
+    document.getElementById('btnViewLeads').classList.toggle('active', isLeads);
+    document.getElementById('btnViewPipeline').classList.toggle('active', !isLeads);
     if (!isLeads) {
-      pipeEl.style.cssText = 'display:block;min-height:300px;overflow:auto;padding:16px;';
+      pipeEl.style.display = 'block';
+      pipeEl.style.minHeight = '400px';
+      pipeEl.style.overflow = 'auto';
+      pipeEl.style.padding = '20px';
+      pipeEl.style.background = '#2a2a00';
+      renderPipeline();
     } else {
       pipeEl.style.cssText = 'display:none';
     }
-    document.getElementById('btnViewLeads').classList.toggle('active', isLeads);
-    document.getElementById('btnViewPipeline').classList.toggle('active', !isLeads);
-    if (!isLeads) renderPipeline();
   }
 
   function renderPipeline() {
     const board = document.getElementById('pipelineBoard');
     if (!board) {
-      console.error('renderPipeline: pipelineBoard não encontrado');
+      document.getElementById('campViewPipeline').insertAdjacentHTML('beforeend',
+        '<div style="color:#ff4444;font-size:18px;font-weight:bold;padding:20px">❌ pipelineBoard NÃO ENCONTRADO</div>');
       return;
     }
+    board.style.display = 'block';
+    board.style.padding = '10px';
+    board.innerHTML = '<div style="color:#ffff00;font-size:16px;font-weight:bold;padding:10px">⏳ Renderizando ' + campanhaLeads.length + ' leads...</div>';
     try {
       const quentes = campanhaLeads.filter(l => l.crmEstagio);
       if (!quentes.length && !campanhaLeads.length) {
