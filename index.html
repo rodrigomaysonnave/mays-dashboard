@@ -360,7 +360,37 @@
     .campanha-progress-header { display: flex; align-items: center; gap: 16px; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
     .campanha-progress-text   { font-size: 13px; color: var(--text-muted); white-space: nowrap; }
     .campanha-progress-bar    { flex: 1; }
-    .lead-crm-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #1a3a1a; color: #4caf50; margin-top: 4px; }
+    .lead-ts { font-size: 11px; color: var(--text-muted); margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
+
+    /* ── Mobile responsivo ──────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .header { padding: 0 12px; }
+      .header-title { font-size: 13px; }
+      .view-tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; gap: 4px; margin-bottom: 16px; }
+      .view-tabs::-webkit-scrollbar { display: none; }
+      .view-tab { white-space: nowrap; flex-shrink: 0; font-size: 12px; padding: 6px 10px; }
+      .main { padding: 12px; }
+      .section-header { flex-wrap: wrap; gap: 8px; }
+      .cards-grid { grid-template-columns: 1fr; }
+      .form-grid { grid-template-columns: 1fr; }
+      .form-group.full { grid-column: 1; }
+      .modal { width: 100%; max-width: 100%; margin: 0; border-radius: var(--radius) var(--radius) 0 0; max-height: 92vh; }
+      .modal-overlay { align-items: flex-end; }
+      .drawer { width: 100%; max-width: 100%; }
+      .fullpage-overlay { overflow-y: auto; }
+      /* Campanha: painel único no mobile */
+      .campanha-page-grid { grid-template-columns: 1fr; height: auto; overflow: visible; }
+      .lead-list-panel { border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+      .lead-list-panel.hidden-mobile { display: none; }
+      .lead-detail-panel.visible-mobile { display: block; }
+      .campanha-progress-header { flex-wrap: wrap; gap: 8px; padding: 8px 12px; }
+      .campanha-progress-bar { width: 100%; order: 3; }
+      .campanha-progress-text { order: 2; }
+      .photo-upload-grid { grid-template-columns: 1fr; }
+      .info-grid { grid-template-columns: 1fr; }
+      .drawer-body { padding: 0 12px 12px; }
+      .btn-sm { font-size: 12px; padding: 5px 10px; }
+    }
 
     /* ── Drawer ──────────────────────────────────────────────── */
     .drawer-overlay {
@@ -1198,7 +1228,7 @@
         <div class="form-group" style="grid-column:1/-1">
           <label>Lista de leads (CSV: nome,telefone — uma linha por lead)</label>
           <div class="photo-drop-zone" id="campCSVZone">
-            <input type="file" id="campCSVInput" accept=".csv,.txt,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv">
+            <input type="file" id="campCSVInput" accept=".csv,.txt,.xlsx,.xls">
             <div id="campCSVPreview" style="text-align:center;color:var(--text-muted);font-size:13px;pointer-events:none">Clique ou arraste o arquivo CSV aqui</div>
           </div>
         </div>
@@ -3822,6 +3852,13 @@
     leadAtivoId     = null;
   }
 
+  function fecharDetalheLeadMobile() {
+    leadAtivoId = null;
+    document.getElementById('leadListPanel').classList.remove('hidden-mobile');
+    document.getElementById('leadDetailPanel').innerHTML =
+      '<div style="color:var(--text-muted);font-size:14px;margin-top:40px;text-align:center">← Selecione um lead para começar</div>';
+  }
+
   function renderLeadList() {
     const total = campanhaLeads.length;
     const done  = campanhaLeads.filter(l => l.classificacao).length;
@@ -3850,21 +3887,30 @@
     const lead = campanhaLeads.find(l => l.id === leadId);
     if (!lead) return;
 
+    if (window.innerWidth < 768) {
+      document.getElementById('leadListPanel').classList.add('hidden-mobile');
+    }
+
     renderLeadList(); // atualiza active
 
-    const telLink    = `tel:${lead.telefone.replace(/\D/g,'')}`;
-    const waLink     = `https://wa.me/55${lead.telefone.replace(/\D/g,'')}`;
-    const crmBadge   = lead.clienteId ? `<span class="lead-crm-badge">✓ No CRM</span>` : '';
+    const telLink  = `tel:${lead.telefone.replace(/\D/g,'')}`;
+    const waLink   = `https://wa.me/55${lead.telefone.replace(/\D/g,'')}`;
+    const tsLabel  = lead.classificadoEm
+      ? `<div class="lead-ts">Último contato: ${new Date(lead.classificadoEm).toLocaleString('pt-BR')}</div>` : '';
 
     const btns = Object.entries(campClassifLabel).map(([k, v]) =>
       `<button class="classif-btn ${lead.classificacao === k ? 'sel-'+k : ''}"
                onclick="classificarLead('${leadId}','${k}')">${v}</button>`
     ).join('');
 
+    const isMobile = window.innerWidth < 768;
+    const backBtn  = isMobile ? `<button class="btn btn-ghost btn-sm" style="margin-bottom:16px" onclick="fecharDetalheLeadMobile()">← Lista</button>` : '';
+
     document.getElementById('leadDetailPanel').innerHTML = `
+      ${backBtn}
       <div class="lead-detail-header">
         <div class="lead-detail-name">${escHtml(lead.nome)}</div>
-        <div class="lead-detail-phone">${escHtml(lead.telefone)} ${crmBadge}</div>
+        <div class="lead-detail-phone">${escHtml(lead.telefone)}</div>
         <div class="lead-contact-btns">
           <a href="${telLink}" class="btn btn-ghost btn-sm">📞 Ligar</a>
           <a href="${waLink}" target="_blank" class="btn btn-ghost btn-sm">💬 WhatsApp</a>
@@ -3873,7 +3919,8 @@
       <div class="lead-obs-label">Anotações</div>
       <textarea class="lead-obs-area" id="leadObsArea" placeholder="Anotações sobre o contato…">${escHtml(lead.anotacoes)}</textarea>
       <div class="classif-label">Classificar</div>
-      <div class="classif-btns">${btns}</div>`;
+      <div class="classif-btns">${btns}</div>
+      ${tsLabel}`;
 
     document.getElementById('leadObsArea').addEventListener('input', () => {
       clearTimeout(obsDebounce);
@@ -3900,22 +3947,6 @@
     await supabaseClient.from('campanha_leads').update({ classificacao, classificado_em: agora }).eq('id', leadId);
     lead.classificacao = classificacao;
     lead.classificadoEm = agora;
-
-    // Criar prospect no CRM se lead quente
-    if (['interesse','whatsapp'].includes(classificacao) && !lead.clienteId) {
-      const camp = campanhaLeads[0]; // para pegar nome da campanha
-      const { data: campRow } = await supabaseClient.from('campanhas').select('nome').eq('id', campanhaAtualId).single();
-      const obsStr = `Lead da campanha: ${campRow?.nome || ''}. ${lead.anotacoes}`.trim();
-      const { data: cliente, error } = await supabaseClient.from('clientes').insert({
-        nome: lead.nome, telefone: lead.telefone,
-        classificacao: 'comercial', status: 'prospect',
-        obs: obsStr, created_by: currentUser.id,
-      }).select('id').single();
-      if (!error && cliente) {
-        await supabaseClient.from('campanha_leads').update({ cliente_id: cliente.id }).eq('id', leadId);
-        lead.clienteId = cliente.id;
-      }
-    }
 
     openLeadDetail(leadId);
     renderLeadList();
