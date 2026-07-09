@@ -4011,13 +4011,15 @@
 
   async function moverEtapaCRM(leadId, etapa) {
     const lead = campanhaLeads.find(l => l.id === leadId);
-    if (!lead || lead.classificacao === etapa) { crmLeadSelecionado = null; renderCRM(); return; }
-    const agora = new Date().toISOString();
+    if (!lead) return;
+    // Clicar na etapa atual desmarca — lead volta pra Pendente
+    const novaEtapa = lead.classificacao === etapa ? null : etapa;
+    const agora = novaEtapa ? new Date().toISOString() : null;
     const { error } = await supabaseClient.from('campanha_leads')
-      .update({ classificacao: etapa, classificado_em: agora })
+      .update({ classificacao: novaEtapa, classificado_em: agora })
       .eq('id', leadId);
     if (error) { alert('Erro ao mover o lead: ' + error.message); return; }
-    lead.classificacao  = etapa;
+    lead.classificacao  = novaEtapa;
     lead.classificadoEm = agora;
     crmLeadSelecionado = null;
     renderCRM();
