@@ -4363,6 +4363,16 @@
   }
 
   async function editarCampanha(id) {
+    const { data: c } = await supabaseClient.from('campanhas').select('nome').eq('id', id).single();
+    const nome = c?.nome || 'esta campanha';
+    openConfirm(
+      'Editar campanha',
+      `Tem certeza que deseja editar a campanha "${nome}"? Alterações nos leads ou corretores podem afetar o andamento dos atendimentos.`,
+      () => abrirEdicaoCampanha(id)
+    );
+  }
+
+  async function abrirEdicaoCampanha(id) {
     editingCampanhaId = id;
     campanhaCsvLeads = [];
     document.getElementById('campModalTitle').textContent = 'Editar campanha';
