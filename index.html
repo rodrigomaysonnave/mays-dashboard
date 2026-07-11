@@ -2895,9 +2895,15 @@
 
   // ── Delete (generic confirm, reused for imóvel/cliente/oferta) ──
   let pendingConfirmAction = null;
-  function openConfirm(title, message, onConfirm) {
+  function openConfirm(title, message, onConfirm, opts = {}) {
     document.querySelector('#confirmOverlay .confirm-dialog h4').textContent = title;
-    document.querySelector('#confirmOverlay .confirm-dialog p').textContent = message;
+    const p = document.querySelector('#confirmOverlay .confirm-dialog p');
+    if (opts.html) p.innerHTML = message; else p.textContent = message;
+    const okBtn = document.getElementById('confirmDelete');
+    okBtn.textContent = opts.okLabel || 'Remover';
+    const danger = opts.danger !== false;
+    okBtn.style.background = danger ? 'var(--red)' : 'var(--gold)';
+    okBtn.style.color = danger ? '#fff' : '#0f0f0f';
     pendingConfirmAction = onConfirm;
     document.getElementById('confirmOverlay').classList.add('open');
   }
@@ -4364,11 +4370,12 @@
 
   async function editarCampanha(id) {
     const { data: c } = await supabaseClient.from('campanhas').select('nome').eq('id', id).single();
-    const nome = c?.nome || 'esta campanha';
+    const nome = escHtml(c?.nome || 'esta campanha');
     openConfirm(
       'Editar campanha',
-      `Tem certeza que deseja editar a campanha "${nome}"? Alterações nos leads ou corretores podem afetar o andamento dos atendimentos.`,
-      () => abrirEdicaoCampanha(id)
+      `Deseja editar a campanha<br><span style="font-size:17px;font-weight:700;color:var(--text)">${nome}</span>?`,
+      () => abrirEdicaoCampanha(id),
+      { html: true, okLabel: 'Continuar', danger: false }
     );
   }
 
