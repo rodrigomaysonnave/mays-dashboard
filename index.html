@@ -3948,6 +3948,7 @@
     leadEtapaFiltro = 'todos';
     const searchEl = document.getElementById('leadSearchInput');
     if (searchEl) searchEl.value = '';
+    document.getElementById('leadListPanel').classList.remove('hidden-mobile');
     campanhaLeads = await loadLeadsDaCampanha(id);
 
     // Buscar nome da campanha
