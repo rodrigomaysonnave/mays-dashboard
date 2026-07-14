@@ -36,9 +36,9 @@
   .confidencial-bar { text-align: center; padding: 14px 20px; font-family: 'Montserrat'; font-size: 10px; letter-spacing: 0.18em; color: var(--ink-faint); border-bottom: 1px solid var(--line); }
 
   /* ── logo da construtora: final da LP ── */
-  .logo-final-wrap { display: flex; flex-direction: column; align-items: center; padding: 50px 24px 12px; }
-  .realizacao-label { font-family: 'Montserrat'; font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 18px; }
-  .logo-final { height: 72px; width: auto; opacity: 0.85; }
+  .logo-final-wrap { display: flex; flex-direction: column; align-items: center; padding: 60px 24px 20px; }
+  .realizacao-label { font-family: 'Montserrat'; font-weight: 700; font-size: 20px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 30px; }
+  .logo-final { height: 140px; width: auto; opacity: 0.9; }
 
   @keyframes pulseline { 0%,100% { opacity: .3; } 50% { opacity: 1; } }
 
@@ -109,11 +109,11 @@
 
   .andar-box-inner { text-align: center; display: flex; flex-direction: column; align-items: center; }
 
-  /* ── seção escura: Pleno Apresenta + foto simulada ── */
+  /* ── seção escura: foto simulada ── */
   .pleno-apresenta { background: var(--ink); color: var(--paper); padding: 100px 24px; display: flex; flex-direction: column; align-items: center; text-align: center; }
-  .pleno-label { font-family: 'Playfair Display'; font-style: italic; font-weight: 600; font-size: clamp(24px, 3.4vw, 36px); margin-bottom: 40px; }
   .foto-simulada-wrap { width: min(1100px, 92vw); }
   .foto-simulada-wrap img { width: 100%; height: auto; display: block; border-radius: 2px; }
+  .foto-legenda { font-family: 'Inter'; font-size: 11.5px; color: rgba(238,233,221,0.5); margin-top: 16px; letter-spacing: 0.03em; }
   .foto-placeholder {
     aspect-ratio: 16 / 9; border: 1px dashed rgba(238,233,221,0.35); border-radius: 4px;
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
@@ -193,12 +193,12 @@
     <!-- as caixas são inseridas via JS a partir de FLOORS -->
   </div>
 
-  <!-- ═══ PLENO APRESENTA — SEÇÃO ESCURA COM FOTO SIMULADA ═══ -->
+  <!-- ═══ SEÇÃO ESCURA COM FOTO SIMULADA ═══ -->
   <section class="pleno-apresenta">
-    <div class="pleno-label">Pleno Apresenta:</div>
     <div class="foto-simulada-wrap">
       <img src="foto-simulada.png" alt="Simulação do Residencial Parque Tênis">
     </div>
+    <div class="foto-legenda">Foto meramente ilustrativa</div>
   </section>
 
   <!-- ═══ SEÇÃO TÉCNICA — SPECS CONSOLIDADAS ═══ -->
