@@ -38,8 +38,7 @@
   /* ── logo da construtora: final da LP ── */
   .logo-final-wrap { display: flex; flex-direction: column; align-items: center; padding: 60px 24px 20px; }
   .realizacao-label { font-family: 'Montserrat'; font-weight: 700; font-size: 20px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 30px; }
-  .logo-final-box { width: 360px; height: 140px; max-width: 80vw; display: flex; align-items: center; justify-content: center; }
-  .logo-final { width: 100%; height: 100%; object-fit: contain; opacity: 0.9; }
+  .logo-final { width: 197px; height: auto; max-width: 60vw; opacity: 0.9; }
 
   @keyframes pulseline { 0%,100% { opacity: .3; } 50% { opacity: 1; } }
 
@@ -63,7 +62,7 @@
   .pilar-track { display: flex; flex-direction: column; align-items: center; padding: 0 6vw; }
 
   .andar-box {
-    position: relative; width: min(960px, 90vw); height: 560px; padding: 0 58px;
+    position: relative; width: min(960px, 90vw); aspect-ratio: 12 / 7; padding: 0 58px;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
   }
 
@@ -141,12 +140,15 @@
   .contato-final .nome { font-family: 'Playfair Display'; font-size: 19px; font-weight: 600; }
   .contato-final .creci { font-family: 'Inter'; font-size: 11.5px; color: var(--ink-soft); }
   .contato-final .tel { font-family: 'Montserrat'; font-size: 14px; letter-spacing: .04em; color: var(--caramelo); margin-top: 8px; }
+  .endereco-final { margin-top: 26px; text-align: center; }
+  .endereco-label { font-family: 'Montserrat'; font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--caramelo); margin-bottom: 8px; }
+  .endereco-texto { font-family: 'Inter'; font-size: 13px; color: var(--ink-soft); max-width: 420px; line-height: 1.6; margin: 0 auto; }
 
   .rodape { text-align: center; padding: 30px 24px 50px; font-family: 'Montserrat'; font-size: 9.5px; letter-spacing: 0.1em; color: var(--ink-faint); }
 
   @media (max-width: 720px) {
     .pilar-track { padding: 0 5vw; }
-    .andar-box { width: 94vw; height: 620px; padding: 0 26px; }
+    .andar-box { width: 94vw; padding: 0 22px; }
     .borda-linha.esq { left: 10px; }
     .borda-linha.dir { right: 10px; }
     .laje-linha { left: 10px; right: 10px; }
@@ -226,14 +228,16 @@
       <div class="creci">CRECI-RS 61.580 · Maysonnave Imóveis</div>
       <div class="tel">(53) 98104-1499</div>
     </div>
+    <div class="endereco-final">
+      <div class="endereco-label">Localização</div>
+      <div class="endereco-texto">Clube Parque Tênis — Av. República do Líbano, 31, Zona Norte, Pelotas - RS, CEP 96055-710</div>
+    </div>
   </section>
 
   <!-- ═══ LOGO DA CONSTRUTORA — FINAL DA LP ═══ -->
   <div class="logo-final-wrap">
     <div class="realizacao-label">Realização</div>
-    <div class="logo-final-box">
-      <img src="logo-pleno.png" alt="Pleno" class="logo-final">
-    </div>
+    <img src="logo-pleno.png" alt="Pleno" class="logo-final">
   </div>
 
   <div class="rodape">PARQUE TÊNIS — APRESENTAÇÃO EXCLUSIVA · MAYSONNAVE IMÓVEIS</div>
