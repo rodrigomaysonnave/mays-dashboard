@@ -809,6 +809,7 @@
     .badge-visitado    { background: rgba(122,171,255,0.1);  color: #7aabff;       border: 1px solid rgba(122,171,255,0.25); }
     .badge-negociacao  { background: var(--yellow-bg);       color: var(--yellow); border: 1px solid rgba(212,160,23,0.2); }
     .badge-proposta    { background: rgba(179,136,255,0.1);  color: #b388ff;       border: 1px solid rgba(179,136,255,0.3); }
+    .badge-contrato    { background: rgba(255,145,0,0.1);    color: #ffb04d;       border: 1px solid rgba(255,145,0,0.3); }
     .badge-recusado    { background: var(--red-bg);          color: var(--red);    border: 1px solid rgba(224,82,82,0.2); }
     .badge-semresposta { background: var(--surface-2);       color: var(--text-muted); border: 1px solid var(--border); }
     .badge-fechado     { background: var(--green-bg);        color: var(--green);  border: 1px solid rgba(76,175,125,0.2); }
@@ -882,7 +883,8 @@
     .stage-ofertado { background: var(--gold); }
     .stage-visitado { background: #7aabff; }
     .stage-negociacao { background: var(--yellow); }
-    .stage-proposta { background: var(--gold); }
+    .stage-proposta { background: #b388ff; }
+    .stage-contrato { background: #ffb04d; }
     .stage-fechado { background: var(--green); }
     .stage-semresposta { background: var(--text-muted); }
     .stage-recusado { background: var(--red); }
@@ -1974,6 +1976,7 @@
             <option value="ofertado">Em atendimento</option>
             <option value="visitado">Em visita</option>
             <option value="proposta">Proposta</option>
+            <option value="contrato">Em contrato</option>
             <option value="fechado">Fechado</option>
             <option value="recusado">Perdido</option>
           </select>
@@ -3330,7 +3333,7 @@
 
   const classifLabel = { comercial:'Comercial', residencial:'Residencial', ambos:'Ambos' };
   const statusClienteLabel = { prospect:'Prospect', ativo:'Ativo', cliente:'Cliente', inativo:'Inativo' };
-  const estagioLabel = { ofertado:'Em atendimento', visitado:'Em visita', proposta:'Proposta', fechado:'Fechado', recusado:'Perdido', negociacao:'Em Negociação', semresposta:'Sem Resposta' };
+  const estagioLabel = { ofertado:'Em atendimento', visitado:'Em visita', proposta:'Proposta', contrato:'Em contrato', fechado:'Fechado', recusado:'Perdido', negociacao:'Em Negociação', semresposta:'Sem Resposta' };
 
   function fmtDateBR(iso) {
     if (!iso) return '—';
@@ -4930,7 +4933,7 @@
   }
 
   // ── Pipeline Kanban ──────────────────────────────────────────
-  const pipelineStages = ['ofertado','visitado','proposta','fechado','recusado'];
+  const pipelineStages = ['ofertado','visitado','proposta','contrato','fechado','recusado'];
 
   async function renderPipeline() {
     const board = document.getElementById('kanbanBoard');
