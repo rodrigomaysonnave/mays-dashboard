@@ -366,10 +366,7 @@
     .classif-btn.sel-sem_perfil   { background: #26152b;         border-color: #ba68c8;           color: #ce93d8; }
     .classif-btn.sel-sem_interesse{ background: #330d14;         border-color: #ff1744;           color: #ff5252; }
     .classif-btn.sel-interesse    { background: #1c2a12;         border-color: #7cb342;           color: #9ccc65; }
-    .classif-btn.sel-cadastrado   { background: #0d1f3c;         border-color: #2979ff;           color: #82b1ff; }
-    .classif-btn.sel-em_analise   { background: #2e2a00;         border-color: #ffea00;           color: #ffea00; }
-    .classif-btn.sel-em_contrato  { background: #2a2000;         border-color: var(--gold);       color: var(--gold); }
-    .classif-btn.sel-vendido      { background: #0a2e1a;         border-color: #00e676;           color: #00e676; font-weight:600; }
+    .classif-btn.sel-outro_negocio{ background: #06262b;         border-color: #26c6da;           color: #4dd0e1; }
     .campanha-progress-header { display: flex; align-items: center; gap: 16px; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
     .campanha-progress-text   { font-size: 13px; color: var(--text-muted); white-space: nowrap; }
     .campanha-progress-bar    { flex: 1; }
@@ -3852,10 +3849,7 @@
     sem_perfil:      'Sem perfil',
     sem_interesse:   'Sem interesse',
     interesse:       'Tem interesse',
-    cadastrado:      'Cadastrado',
-    em_analise:      'Em análise',
-    em_contrato:     'Contrato',
-    vendido:         'Vendido',
+    outro_negocio:   'Outro negócio',
   };
 
   async function loadCampanhas() {
@@ -3981,10 +3975,7 @@
     sem_perfil:      '#ba68c8',
     sem_interesse:   '#ff1744',
     interesse:       '#7cb342',
-    cadastrado:      '#2979ff',
-    em_analise:      '#ffea00',
-    em_contrato:     '#c9a961',
-    vendido:         '#00e676',
+    outro_negocio:   '#26c6da',
   };
 
   function setCampanhaView(view) {
@@ -4054,6 +4045,9 @@
     if (error) { alert('Erro ao mover o lead: ' + error.message); return; }
     lead.classificacao  = novaEtapa;
     lead.classificadoEm = agora;
+    if (novaEtapa === 'interesse' || novaEtapa === 'outro_negocio') {
+      await enviarLeadProPipeline(lead);
+    }
     crmLeadSelecionado = null;
     renderCRM();
     renderLeadList();
@@ -4268,9 +4262,71 @@
     if (error) { alert('Erro ao salvar a etapa: ' + error.message); return; }
     lead.classificacao = novaClassif;
     lead.classificadoEm = novaClassif ? agora : null;
+    if (novaClassif === 'interesse' || novaClassif === 'outro_negocio') {
+      await enviarLeadProPipeline(lead);
+    }
     openLeadDetail(leadId);
     renderLeadList();
     checkCampanhaCompleta();
+  }
+
+  // ── Ponte campanha → Pipeline ─────────────────────────────────
+  // "Tem interesse" e "Outro negócio" mandam o lead pro Pipeline
+  // levando o nome da campanha e o histórico de anotações.
+  function historicoLeadTexto(lead) {
+    let arr = [];
+    try { const p = JSON.parse(lead.anotacoes || '[]'); if (Array.isArray(p)) arr = p; } catch(e) {}
+    return arr.map(a => {
+      const quando = new Date(a.em).toLocaleDateString('pt-BR') + ' ' +
+                     new Date(a.em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      const et = a.etapa ? ` [${campClassifLabel[a.etapa] || a.etapa}]` : '';
+      return `${quando}${et} — ${a.texto}`;
+    }).join('\n');
+  }
+
+  async function enviarLeadProPipeline(lead) {
+    const campNome = (document.getElementById('campanhaNomeHeader')?.textContent || '').trim() || 'Campanha';
+
+    // Garante um cliente vinculado ao lead
+    let clienteId = lead.clienteId;
+    if (!clienteId) {
+      const payload = mapClienteToDb({
+        nome: lead.nome, telefone: lead.telefone, email: '',
+        classificacao: 'ambos', status: 'prospect',
+        obs: `Origem: campanha ${campNome}`,
+      });
+      payload.created_by = currentUser.id;
+      const { data, error } = await supabaseClient.from('clientes').insert(payload).select('id').single();
+      if (error) { alert('Erro ao criar cliente do lead: ' + error.message); return; }
+      clienteId = data.id;
+      await supabaseClient.from('campanha_leads').update({ cliente_id: clienteId }).eq('id', lead.id);
+      lead.clienteId = clienteId;
+    }
+
+    // Evita duplicar: se o cliente já entrou no Pipeline por esta campanha, não cria outra oferta
+    const ofertas = await loadOfertas();
+    const jaExiste = ofertas.find(o => o.clienteId === clienteId && (o.obs || '').startsWith(`Campanha: ${campNome}`));
+    if (jaExiste) { showPipelineToast(`${lead.nome} já está no Pipeline`); return; }
+
+    const hist = historicoLeadTexto(lead);
+    const obs = `Campanha: ${campNome}` + (hist ? `\n— Histórico da campanha —\n${hist}` : '');
+    const payload = mapOfertaToDb({
+      clienteId, imovelId: null, estagio: 'ofertado',
+      data: new Date().toISOString().slice(0, 10),
+      valor: '', proximoContato: null, obs,
+    });
+    payload.created_by = currentUser.id;
+    const { error } = await supabaseClient.from('ofertas').insert(payload).select('id').single();
+    if (error) { alert('Erro ao enviar pro Pipeline: ' + error.message); return; }
+    showPipelineToast(`${lead.nome} enviado pro Pipeline`);
+  }
+
+  function showPipelineToast(texto) {
+    const toast = document.getElementById('resolvedToast');
+    document.getElementById('resolvedToastText').textContent = texto;
+    toast.classList.add('show');
+    clearTimeout(resolvedToastTimer);
+    resolvedToastTimer = setTimeout(() => toast.classList.remove('show'), 2600);
   }
 
   function checkCampanhaCompleta() {
@@ -4855,9 +4911,11 @@
       const cards = lista.map(o => {
         const im = imById[o.imovelId]; const cl = clById[o.clienteId];
         const staleLevel = staleLevelOferta(o);
+        const origemCampanha = !o.imovelId && (o.obs || '').startsWith('Campanha: ') ? o.obs.split('\n')[0] : null;
         return `<div class="kanban-card${staleLevel ? ' kanban-card-stale-'+staleLevel : ''}" draggable="true" data-oferta="${o.id}">
           ${im && im.codigo ? `<div class="kanban-card-code">${escHtml(im.codigo)}</div>` : ''}
-          <div class="kanban-card-addr">${escHtml(im ? (im.endereco || '—') : 'Imóvel removido')}</div>
+          ${origemCampanha ? `<div class="kanban-card-code">📣 ${escHtml(origemCampanha)}</div>` : ''}
+          <div class="kanban-card-addr">${escHtml(im ? (im.endereco || '—') : (origemCampanha ? 'Imóvel a definir' : 'Imóvel removido'))}</div>
           <div class="kanban-card-cliente">${escHtml(clienteDisplayName(cl))}</div>
           ${o.valor ? `<div class="kanban-card-valor">${escHtml(fmtCurrency(o.valor))}</div>` : ''}
           ${staleBadgeHtml(staleLevel, diasDesde(o.updatedAt))}
