@@ -1971,13 +1971,11 @@
         <div class="form-group">
           <label for="ofEstagio">Estágio</label>
           <select id="ofEstagio">
-            <option value="ofertado">Ofertado</option>
-            <option value="visitado">Visitado</option>
-            <option value="negociacao">Em Negociação</option>
+            <option value="ofertado">Em atendimento</option>
+            <option value="visitado">Em visita</option>
             <option value="proposta">Proposta</option>
-            <option value="recusado">Recusado</option>
-            <option value="semresposta">Sem Resposta</option>
             <option value="fechado">Fechado</option>
+            <option value="recusado">Perdido</option>
           </select>
         </div>
         <div class="form-group">
@@ -2059,6 +2057,33 @@
   const SUPABASE_URL = 'https://xcwgsijqwaiaomatkrqn.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhjd2dzaWpxd2FpYW9tYXRrcnFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5NDAzMTcsImV4cCI6MjA5NzUxNjMxN30.ZEnlwxlHDpuP8m0QlqSHpvbNyIN3AsfnCxPHVIK9IpA';
   const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // ── Cache de leitura por sessão (reduz egress do Supabase) ──────
+  // As tabelas mais pesadas (imoveis carrega fotos em base64) eram
+  // rebaixadas inteiras a cada render. O cache guarda o resultado e é
+  // invalidado automaticamente quando a própria sessão escreve na tabela,
+  // ou quando a aba volta ao foco depois de 5+ minutos escondida
+  // (pra enxergar alterações feitas por outro usuário).
+  const _dbCache = {};
+  function invalidateDbCache(table) {
+    if (table) delete _dbCache[table]; else Object.keys(_dbCache).forEach(k => delete _dbCache[k]);
+  }
+  const _origFrom = supabaseClient.from.bind(supabaseClient);
+  supabaseClient.from = function(table) {
+    const builder = _origFrom(table);
+    for (const m of ['insert', 'update', 'delete', 'upsert']) {
+      if (typeof builder[m] !== 'function') continue;
+      const orig = builder[m].bind(builder);
+      builder[m] = (...args) => { invalidateDbCache(table); return orig(...args); };
+    }
+    return builder;
+  };
+  let _hiddenDesde = null;
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { _hiddenDesde = Date.now(); return; }
+    if (_hiddenDesde && Date.now() - _hiddenDesde > 5 * 60 * 1000) invalidateDbCache();
+    _hiddenDesde = null;
+  });
 
   let currentUser = null;
   let currentProfile = null;
@@ -2300,6 +2325,7 @@
   });
 
   supabaseClient.auth.onAuthStateChange((event, session) => {
+    if ((session?.user?.id || null) !== (currentUser?.id || null)) invalidateDbCache();
     if (session?.user) {
       currentUser = session.user;
       // Sai do "lock" do callback antes de consultar o banco (evita deadlock do supabase-js).
@@ -2355,9 +2381,11 @@
     };
   }
   async function loadData() {
+    if (_dbCache.imoveis) return _dbCache.imoveis;
     const { data, error } = await supabaseClient.from('imoveis').select('*').order('created_at', { ascending: false });
     if (error) { console.error(error); return []; }
-    return data.map(mapImovelFromDb);
+    _dbCache.imoveis = data.map(mapImovelFromDb);
+    return _dbCache.imoveis;
   }
 
   // Busca só um imóvel (evita baixar a tabela inteira, com todas as fotos, pra abrir um único card).
@@ -3267,9 +3295,11 @@
     };
   }
   async function loadClientes() {
+    if (_dbCache.clientes) return _dbCache.clientes;
     const { data, error } = await supabaseClient.from('clientes').select('*').order('nome');
     if (error) { console.error(error); return []; }
-    return data.map(mapClienteFromDb);
+    _dbCache.clientes = data.map(mapClienteFromDb);
+    return _dbCache.clientes;
   }
 
   // ── Ofertas: mapeamento DB ↔ app e acesso ao Supabase ──────────
@@ -3280,9 +3310,11 @@
     return { cliente_id: item.clienteId, imovel_id: item.imovelId, estagio: item.estagio, data: item.data || null, valor: item.valor || null, obs: item.obs || null, proximo_contato: item.proximoContato || null };
   }
   async function loadOfertas() {
+    if (_dbCache.ofertas) return _dbCache.ofertas;
     const { data, error } = await supabaseClient.from('ofertas').select('*').order('created_at', { ascending: false });
     if (error) { console.error(error); return []; }
-    return data.map(mapOfertaFromDb);
+    _dbCache.ofertas = data.map(mapOfertaFromDb);
+    return _dbCache.ofertas;
   }
 
   // ── Propostas (histórico de valores de uma oferta) ─────────────
@@ -3298,7 +3330,7 @@
 
   const classifLabel = { comercial:'Comercial', residencial:'Residencial', ambos:'Ambos' };
   const statusClienteLabel = { prospect:'Prospect', ativo:'Ativo', cliente:'Cliente', inativo:'Inativo' };
-  const estagioLabel = { ofertado:'Ofertado', visitado:'Visitado', negociacao:'Em Negociação', proposta:'Proposta', recusado:'Recusado', semresposta:'Sem Resposta', fechado:'Fechado' };
+  const estagioLabel = { ofertado:'Em atendimento', visitado:'Em visita', proposta:'Proposta', fechado:'Fechado', recusado:'Perdido', negociacao:'Em Negociação', semresposta:'Sem Resposta' };
 
   function fmtDateBR(iso) {
     if (!iso) return '—';
@@ -3332,9 +3364,11 @@
     };
   }
   async function loadEmpreendimentos() {
+    if (_dbCache.empreendimentos) return _dbCache.empreendimentos;
     const { data, error } = await supabaseClient.from('empreendimentos').select('*').order('created_at', { ascending: false });
     if (error) { console.error(error); return []; }
-    return data.map(mapEmpreendimentoFromDb);
+    _dbCache.empreendimentos = data.map(mapEmpreendimentoFromDb);
+    return _dbCache.empreendimentos;
   }
   async function loadEmpreendimentoById(id) {
     const { data, error } = await supabaseClient.from('empreendimentos').select('*').eq('id', id).single();
@@ -3356,9 +3390,11 @@
     };
   }
   async function loadConstrutoras() {
+    if (_dbCache.construtoras) return _dbCache.construtoras;
     const { data, error } = await supabaseClient.from('construtoras').select('*').order('nome');
     if (error) { console.error(error); return []; }
-    return data.map(mapConstrutoraFromDb);
+    _dbCache.construtoras = data.map(mapConstrutoraFromDb);
+    return _dbCache.construtoras;
   }
   async function loadConstrutoraById(id) {
     const { data, error } = await supabaseClient.from('construtoras').select('*').eq('id', id).single();
@@ -4894,13 +4930,22 @@
   }
 
   // ── Pipeline Kanban ──────────────────────────────────────────
-  const pipelineStages = ['ofertado','visitado','negociacao','proposta','fechado','semresposta','recusado'];
+  const pipelineStages = ['ofertado','visitado','proposta','fechado','recusado'];
 
   async function renderPipeline() {
     const board = document.getElementById('kanbanBoard');
     const me = currentUser && currentUser.id;
     const isAdmin = currentProfile && currentProfile.role === 'admin';
     const ofertas = (await loadOfertas()).filter(o => o.createdBy === me || isAdmin);
+
+    // Migra registros de estágios desativados pros equivalentes atuais
+    const estagioLegado = { negociacao: 'proposta', semresposta: 'recusado' };
+    for (const o of ofertas) {
+      if (estagioLegado[o.estagio]) {
+        await supabaseClient.from('ofertas').update({ estagio: estagioLegado[o.estagio] }).eq('id', o.id);
+        o.estagio = estagioLegado[o.estagio];
+      }
+    }
     const imoveis = await loadData();
     const clientes = await loadClientes();
     const imById = Object.fromEntries(imoveis.map(i => [i.id, i]));
