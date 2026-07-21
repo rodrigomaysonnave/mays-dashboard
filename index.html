@@ -318,6 +318,9 @@
     .lead-list-panel     { border-right: 1px solid var(--border); overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 4px; }
     .lead-search { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); padding: 8px 10px; font-size: 13px; font-family: inherit; flex-shrink: 0; margin-bottom: 4px; }
     .lead-search:focus { outline: none; border-color: var(--gold-dim); }
+    .lead-etapa-select { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); padding: 8px 10px; font-size: 13px; font-family: inherit; flex-shrink: 0; margin-bottom: 4px; cursor: pointer; -webkit-appearance: none; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.5' fill='none'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
+    .lead-etapa-select:focus { outline: none; border-color: var(--gold-dim); }
+    .lead-etapa-select.filtro-ativo { border-color: var(--gold); color: var(--gold); font-weight: 600; }
     .lead-detail-panel   { overflow-y: auto; padding: 24px; }
 
     .lead-list-btn {
@@ -329,16 +332,16 @@
     }
     .lead-list-btn:hover  { background: var(--surface); border-color: var(--gold-dim); }
     .lead-list-btn.active { background: var(--surface); border-color: var(--gold); }
-    .lead-list-btn .lead-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--text-muted); }
-    .lead-list-btn.cl-nao_atendeu    .lead-dot { background: var(--text-muted); }
-    .lead-list-btn.cl-numero_invalido .lead-dot { background: #c0392b; }
-    .lead-list-btn.cl-sem_perfil     .lead-dot { background: #8e7cc3; }
-    .lead-list-btn.cl-sem_interesse  .lead-dot { background: var(--red); }
-    .lead-list-btn.cl-interesse      .lead-dot { background: #4caf50; }
-    .lead-list-btn.cl-cadastrado     .lead-dot { background: #3a9bd5; }
-    .lead-list-btn.cl-em_analise     .lead-dot { background: var(--yellow); }
+    .lead-list-btn .lead-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; background: #9e9e9e; box-shadow: 0 0 0 2px rgba(255,255,255,0.07); }
+    .lead-list-btn.cl-nao_atendeu    .lead-dot { background: #ff9100; }
+    .lead-list-btn.cl-numero_invalido .lead-dot { background: #795548; }
+    .lead-list-btn.cl-sem_perfil     .lead-dot { background: #ba68c8; }
+    .lead-list-btn.cl-sem_interesse  .lead-dot { background: #ff1744; }
+    .lead-list-btn.cl-interesse      .lead-dot { background: #7cb342; }
+    .lead-list-btn.cl-cadastrado     .lead-dot { background: #2979ff; }
+    .lead-list-btn.cl-em_analise     .lead-dot { background: #ffea00; }
     .lead-list-btn.cl-em_contrato    .lead-dot { background: var(--gold); }
-    .lead-list-btn.cl-vendido        .lead-dot { background: #4caf50; }
+    .lead-list-btn.cl-vendido        .lead-dot { background: #00e676; }
     .lead-list-btn .lead-nome { font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .lead-list-btn .lead-tel  { font-size: 11px; color: var(--text-muted); }
 
@@ -358,15 +361,12 @@
       transition: all 0.15s;
     }
     .classif-btn:hover           { border-color: var(--gold-dim); background: var(--surface); }
-    .classif-btn.sel-nao_atendeu  { background: var(--surface);  border-color: var(--text-muted); color: var(--text-muted); }
-    .classif-btn.sel-numero_invalido { background: #2e1512;      border-color: #c0392b;           color: #e07a6d; }
-    .classif-btn.sel-sem_perfil   { background: #221d33;         border-color: #8e7cc3;           color: #b3a3e0; }
-    .classif-btn.sel-sem_interesse{ background: #2e1a1a;         border-color: var(--red);        color: var(--red); }
-    .classif-btn.sel-interesse    { background: #1a3a1a;         border-color: #4caf50;           color: #4caf50; }
-    .classif-btn.sel-cadastrado   { background: #0d2233;         border-color: #3a9bd5;           color: #3a9bd5; }
-    .classif-btn.sel-em_analise   { background: #2e2a1a;         border-color: var(--yellow);     color: var(--yellow); }
-    .classif-btn.sel-em_contrato  { background: #2a2000;         border-color: var(--gold);       color: var(--gold); }
-    .classif-btn.sel-vendido      { background: #1a3a1a;         border-color: #4caf50;           color: #4caf50; font-weight:600; }
+    .classif-btn.sel-nao_atendeu  { background: #2e1f0a;         border-color: #ff9100;           color: #ffb04d; }
+    .classif-btn.sel-numero_invalido { background: #241a16;      border-color: #795548;           color: #bcaaa4; }
+    .classif-btn.sel-sem_perfil   { background: #26152b;         border-color: #ba68c8;           color: #ce93d8; }
+    .classif-btn.sel-sem_interesse{ background: #330d14;         border-color: #ff1744;           color: #ff5252; }
+    .classif-btn.sel-interesse    { background: #1c2a12;         border-color: #7cb342;           color: #9ccc65; }
+    .classif-btn.sel-outro_negocio{ background: #06262b;         border-color: #26c6da;           color: #4dd0e1; }
     .campanha-progress-header { display: flex; align-items: center; gap: 16px; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
     .campanha-progress-text   { font-size: 13px; color: var(--text-muted); white-space: nowrap; }
     .campanha-progress-bar    { flex: 1; }
@@ -426,6 +426,10 @@
       /* Campanha: painel único no mobile */
       .campanha-page-grid { grid-template-columns: 1fr; height: auto; overflow: visible; }
       .lead-list-panel { border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+      .lead-detail-panel { padding: 16px 12px; }
+      .nova-anotacao-wrap { flex-direction: column; align-items: stretch; }
+      .nova-anotacao-input { width: 100%; min-width: 0; }
+      .nova-anotacao-ok { width: 100%; align-self: stretch; padding: 12px; font-size: 14px; }
       .lead-list-panel.hidden-mobile { display: none; }
       .lead-detail-panel.visible-mobile { display: block; }
       .campanha-progress-header { flex-wrap: wrap; gap: 8px; padding: 8px 12px; }
@@ -805,6 +809,7 @@
     .badge-visitado    { background: rgba(122,171,255,0.1);  color: #7aabff;       border: 1px solid rgba(122,171,255,0.25); }
     .badge-negociacao  { background: var(--yellow-bg);       color: var(--yellow); border: 1px solid rgba(212,160,23,0.2); }
     .badge-proposta    { background: rgba(179,136,255,0.1);  color: #b388ff;       border: 1px solid rgba(179,136,255,0.3); }
+    .badge-contrato    { background: rgba(255,145,0,0.1);    color: #ffb04d;       border: 1px solid rgba(255,145,0,0.3); }
     .badge-recusado    { background: var(--red-bg);          color: var(--red);    border: 1px solid rgba(224,82,82,0.2); }
     .badge-semresposta { background: var(--surface-2);       color: var(--text-muted); border: 1px solid var(--border); }
     .badge-fechado     { background: var(--green-bg);        color: var(--green);  border: 1px solid rgba(76,175,125,0.2); }
@@ -878,7 +883,8 @@
     .stage-ofertado { background: var(--gold); }
     .stage-visitado { background: #7aabff; }
     .stage-negociacao { background: var(--yellow); }
-    .stage-proposta { background: var(--gold); }
+    .stage-proposta { background: #b388ff; }
+    .stage-contrato { background: #ffb04d; }
     .stage-fechado { background: var(--green); }
     .stage-semresposta { background: var(--text-muted); }
     .stage-recusado { background: var(--red); }
@@ -1233,7 +1239,10 @@
 <div class="fullpage-overlay" id="pageCampanha">
   <div class="campanha-progress-header">
     <button class="btn btn-ghost" id="btnBackCampanha" style="flex-shrink:0">&#x2190; Voltar</button>
-    <div style="font-weight:600;font-size:15px;flex-shrink:0" id="campanhaNomeHeader"></div>
+    <div style="flex-shrink:0">
+      <div style="font-weight:600;font-size:15px" id="campanhaNomeHeader"></div>
+      <div style="font-size:11px;color:var(--text-muted)" id="campanhaPeriodoHeader"></div>
+    </div>
     <div class="camp-toggle">
       <button class="camp-toggle-btn active" id="btnViewLeads" onclick="setCampanhaView('leads')">Leads</button>
       <button class="camp-toggle-btn" id="btnViewCRM" onclick="setCampanhaView('crm')">CRM</button>
@@ -1248,6 +1257,7 @@
   <div id="campViewLeads" class="campanha-page-grid">
     <div class="lead-list-panel" id="leadListPanel">
       <input type="text" class="lead-search" id="leadSearchInput" placeholder="🔍 Buscar lead…" oninput="filtrarLeads(this.value)">
+      <select class="lead-etapa-select" id="leadEtapaSelect" onchange="filtrarEtapa(this.value)"></select>
       <div id="leadListItems" style="display:flex;flex-direction:column;gap:4px"></div>
     </div>
     <div class="lead-detail-panel" id="leadDetailPanel">
@@ -1284,6 +1294,10 @@
             <option value="ativa">Ativa</option>
             <option value="concluida">Concluída</option>
           </select>
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Meta de atendimento <span style="font-size:11px;color:var(--text-muted)">(prazo final, só admin define)</span></label>
+          <input type="date" id="campMetaAtendimento">
         </div>
         <div id="campEditCSVWrap" class="form-group" style="grid-column:1/-1;display:none">
           <label>Substituir lista de leads <span style="font-size:11px;color:var(--text-muted)">(opcional — substitui todos os leads atuais)</span></label>
@@ -1966,13 +1980,12 @@
         <div class="form-group">
           <label for="ofEstagio">Estágio</label>
           <select id="ofEstagio">
-            <option value="ofertado">Ofertado</option>
-            <option value="visitado">Visitado</option>
-            <option value="negociacao">Em Negociação</option>
+            <option value="ofertado">Em atendimento</option>
+            <option value="visitado">Em visita</option>
             <option value="proposta">Proposta</option>
-            <option value="recusado">Recusado</option>
-            <option value="semresposta">Sem Resposta</option>
+            <option value="contrato">Em contrato</option>
             <option value="fechado">Fechado</option>
+            <option value="recusado">Perdido</option>
           </select>
         </div>
         <div class="form-group">
@@ -2054,6 +2067,33 @@
   const SUPABASE_URL = 'https://xcwgsijqwaiaomatkrqn.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhjd2dzaWpxd2FpYW9tYXRrcnFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5NDAzMTcsImV4cCI6MjA5NzUxNjMxN30.ZEnlwxlHDpuP8m0QlqSHpvbNyIN3AsfnCxPHVIK9IpA';
   const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // ── Cache de leitura por sessão (reduz egress do Supabase) ──────
+  // As tabelas mais pesadas (imoveis carrega fotos em base64) eram
+  // rebaixadas inteiras a cada render. O cache guarda o resultado e é
+  // invalidado automaticamente quando a própria sessão escreve na tabela,
+  // ou quando a aba volta ao foco depois de 5+ minutos escondida
+  // (pra enxergar alterações feitas por outro usuário).
+  const _dbCache = {};
+  function invalidateDbCache(table) {
+    if (table) delete _dbCache[table]; else Object.keys(_dbCache).forEach(k => delete _dbCache[k]);
+  }
+  const _origFrom = supabaseClient.from.bind(supabaseClient);
+  supabaseClient.from = function(table) {
+    const builder = _origFrom(table);
+    for (const m of ['insert', 'update', 'delete', 'upsert']) {
+      if (typeof builder[m] !== 'function') continue;
+      const orig = builder[m].bind(builder);
+      builder[m] = (...args) => { invalidateDbCache(table); return orig(...args); };
+    }
+    return builder;
+  };
+  let _hiddenDesde = null;
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { _hiddenDesde = Date.now(); return; }
+    if (_hiddenDesde && Date.now() - _hiddenDesde > 5 * 60 * 1000) invalidateDbCache();
+    _hiddenDesde = null;
+  });
 
   let currentUser = null;
   let currentProfile = null;
@@ -2295,6 +2335,7 @@
   });
 
   supabaseClient.auth.onAuthStateChange((event, session) => {
+    if ((session?.user?.id || null) !== (currentUser?.id || null)) invalidateDbCache();
     if (session?.user) {
       currentUser = session.user;
       // Sai do "lock" do callback antes de consultar o banco (evita deadlock do supabase-js).
@@ -2350,9 +2391,11 @@
     };
   }
   async function loadData() {
+    if (_dbCache.imoveis) return _dbCache.imoveis;
     const { data, error } = await supabaseClient.from('imoveis').select('*').order('created_at', { ascending: false });
     if (error) { console.error(error); return []; }
-    return data.map(mapImovelFromDb);
+    _dbCache.imoveis = data.map(mapImovelFromDb);
+    return _dbCache.imoveis;
   }
 
   // Busca só um imóvel (evita baixar a tabela inteira, com todas as fotos, pra abrir um único card).
@@ -3262,9 +3305,11 @@
     };
   }
   async function loadClientes() {
+    if (_dbCache.clientes) return _dbCache.clientes;
     const { data, error } = await supabaseClient.from('clientes').select('*').order('nome');
     if (error) { console.error(error); return []; }
-    return data.map(mapClienteFromDb);
+    _dbCache.clientes = data.map(mapClienteFromDb);
+    return _dbCache.clientes;
   }
 
   // ── Ofertas: mapeamento DB ↔ app e acesso ao Supabase ──────────
@@ -3275,9 +3320,11 @@
     return { cliente_id: item.clienteId, imovel_id: item.imovelId, estagio: item.estagio, data: item.data || null, valor: item.valor || null, obs: item.obs || null, proximo_contato: item.proximoContato || null };
   }
   async function loadOfertas() {
+    if (_dbCache.ofertas) return _dbCache.ofertas;
     const { data, error } = await supabaseClient.from('ofertas').select('*').order('created_at', { ascending: false });
     if (error) { console.error(error); return []; }
-    return data.map(mapOfertaFromDb);
+    _dbCache.ofertas = data.map(mapOfertaFromDb);
+    return _dbCache.ofertas;
   }
 
   // ── Propostas (histórico de valores de uma oferta) ─────────────
@@ -3293,7 +3340,7 @@
 
   const classifLabel = { comercial:'Comercial', residencial:'Residencial', ambos:'Ambos' };
   const statusClienteLabel = { prospect:'Prospect', ativo:'Ativo', cliente:'Cliente', inativo:'Inativo' };
-  const estagioLabel = { ofertado:'Ofertado', visitado:'Visitado', negociacao:'Em Negociação', proposta:'Proposta', recusado:'Recusado', semresposta:'Sem Resposta', fechado:'Fechado' };
+  const estagioLabel = { ofertado:'Em atendimento', visitado:'Em visita', proposta:'Proposta', contrato:'Em contrato', fechado:'Fechado', recusado:'Perdido', negociacao:'Em Negociação', semresposta:'Sem Resposta' };
 
   function fmtDateBR(iso) {
     if (!iso) return '—';
@@ -3327,9 +3374,11 @@
     };
   }
   async function loadEmpreendimentos() {
+    if (_dbCache.empreendimentos) return _dbCache.empreendimentos;
     const { data, error } = await supabaseClient.from('empreendimentos').select('*').order('created_at', { ascending: false });
     if (error) { console.error(error); return []; }
-    return data.map(mapEmpreendimentoFromDb);
+    _dbCache.empreendimentos = data.map(mapEmpreendimentoFromDb);
+    return _dbCache.empreendimentos;
   }
   async function loadEmpreendimentoById(id) {
     const { data, error } = await supabaseClient.from('empreendimentos').select('*').eq('id', id).single();
@@ -3351,9 +3400,11 @@
     };
   }
   async function loadConstrutoras() {
+    if (_dbCache.construtoras) return _dbCache.construtoras;
     const { data, error } = await supabaseClient.from('construtoras').select('*').order('nome');
     if (error) { console.error(error); return []; }
-    return data.map(mapConstrutoraFromDb);
+    _dbCache.construtoras = data.map(mapConstrutoraFromDb);
+    return _dbCache.construtoras;
   }
   async function loadConstrutoraById(id) {
     const { data, error } = await supabaseClient.from('construtoras').select('*').eq('id', id).single();
@@ -3844,10 +3895,7 @@
     sem_perfil:      'Sem perfil',
     sem_interesse:   'Sem interesse',
     interesse:       'Tem interesse',
-    cadastrado:      'Cadastrado',
-    em_analise:      'Em análise',
-    em_contrato:     'Contrato',
-    vendido:         'Vendido',
+    outro_negocio:   'Outro negócio',
   };
 
   async function loadCampanhas() {
@@ -3856,7 +3904,7 @@
     return data.map(r => ({
       id: r.id, nome: r.nome, status: r.status,
       empreendimentoId: r.empreendimento_id, createdBy: r.created_by,
-      createdAt: r.created_at,
+      createdAt: r.created_at, metaAtendimento: r.meta_atendimento,
     }));
   }
 
@@ -3910,6 +3958,12 @@
       const done  = leads.filter(l => l.classificacao).length;
       const pct   = total ? Math.round((done / total) * 100) : 0;
       const meu = c.createdBy === currentUser.id || isAdmin;
+      const hoje = new Date().toISOString().slice(0,10);
+      const vencida = c.metaAtendimento && c.metaAtendimento < hoje && c.status === 'ativa';
+      const metaHtml = c.metaAtendimento
+        ? `<div style="font-size:11.5px;margin-bottom:8px;color:${vencida ? 'var(--red)' : 'var(--text-muted)'};font-weight:${vencida ? '600' : '400'}">
+             ${vencida ? '⚠ Prazo vencido: ' : 'Meta de atendimento: '}${fmtDateBR(c.metaAtendimento)}
+           </div>` : '';
       return `
         <div class="card" onclick="openCampanhaPage('${c.id}')">
           <div class="card-body">
@@ -3925,7 +3979,8 @@
               </div>
             </div>
             <div style="font-weight:600;font-size:15px;margin-bottom:4px">${escHtml(c.nome)}</div>
-            <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">${done} / ${total} leads classificados</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">${done} / ${total} leads classificados</div>
+            ${metaHtml}
             <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:${pct}%"></div></div>
           </div>
         </div>`;
@@ -3937,13 +3992,18 @@
     campanhaAtualId = id;
     leadAtivoId = null;
     leadFiltro = '';
+    leadEtapaFiltro = 'todos';
     const searchEl = document.getElementById('leadSearchInput');
     if (searchEl) searchEl.value = '';
+    document.getElementById('leadListPanel').classList.remove('hidden-mobile');
     campanhaLeads = await loadLeadsDaCampanha(id);
 
-    // Buscar nome da campanha
-    const { data: camp } = await supabaseClient.from('campanhas').select('nome').eq('id', id).single();
+    // Buscar nome, início e prazo da campanha
+    const { data: camp } = await supabaseClient.from('campanhas').select('nome, created_at, meta_atendimento').eq('id', id).single();
     document.getElementById('campanhaNomeHeader').textContent = camp?.nome || '';
+    const inicio = camp?.created_at ? fmtDateBR(camp.created_at.slice(0,10)) : '—';
+    const fim = camp?.meta_atendimento ? fmtDateBR(camp.meta_atendimento) : 'sem prazo definido';
+    document.getElementById('campanhaPeriodoHeader').textContent = `Início: ${inicio}  ·  Meta de atendimento: ${fim}`;
 
     renderLeadList();
     document.getElementById('leadDetailPanel').innerHTML = '<div style="color:var(--text-muted);font-size:14px;margin-top:40px;text-align:center">← Selecione um lead para começar</div>';
@@ -3966,15 +4026,12 @@
   let crmLeadSelecionado = null;
 
   const crmEtapaCor = {
-    nao_atendeu:     '#888',
-    numero_invalido: '#c0392b',
-    sem_perfil:      '#8e7cc3',
-    sem_interesse:   '#e05252',
-    interesse:       '#4caf50',
-    cadastrado:      '#3a9bd5',
-    em_analise:      '#e8c547',
-    em_contrato:     '#c9a961',
-    vendido:         '#4caf50',
+    nao_atendeu:     '#ff9100',
+    numero_invalido: '#795548',
+    sem_perfil:      '#ba68c8',
+    sem_interesse:   '#ff1744',
+    interesse:       '#7cb342',
+    outro_negocio:   '#26c6da',
   };
 
   function setCampanhaView(view) {
@@ -3991,7 +4048,7 @@
     if (!el) return;
 
     const colunas = [
-      { key: null, label: 'Pendente', cor: '#555' },
+      { key: null, label: 'Pendente', cor: '#9e9e9e' },
       ...Object.entries(campClassifLabel).map(([k, v]) => ({ key: k, label: v, cor: crmEtapaCor[k] })),
     ];
 
@@ -4044,6 +4101,9 @@
     if (error) { alert('Erro ao mover o lead: ' + error.message); return; }
     lead.classificacao  = novaEtapa;
     lead.classificadoEm = agora;
+    if (novaEtapa === 'interesse' || novaEtapa === 'outro_negocio') {
+      await enviarLeadProPipeline(lead);
+    }
     crmLeadSelecionado = null;
     renderCRM();
     renderLeadList();
@@ -4057,6 +4117,12 @@
   }
 
   let leadFiltro = '';
+  let leadEtapaFiltro = 'todos';
+
+  function filtrarEtapa(key) {
+    leadEtapaFiltro = key;
+    renderLeadList();
+  }
 
   function filtrarLeads(texto) {
     leadFiltro = texto;
@@ -4070,15 +4136,30 @@
     document.getElementById('campanhaProgressFill').style.width = pct + '%';
     document.getElementById('campanhaProgressText').textContent = `${done} / ${total}`;
 
+    const selEl = document.getElementById('leadEtapaSelect');
+    if (selEl) {
+      const opcoes = [
+        { key: 'todos',    label: 'Todas as etapas', count: campanhaLeads.length },
+        { key: 'pendente', label: '⚪ Pendente',      count: campanhaLeads.filter(l => !l.classificacao).length },
+        ...Object.entries(campClassifLabel)
+          .map(([k, v]) => ({ key: k, label: v, count: campanhaLeads.filter(l => l.classificacao === k).length })),
+      ];
+      selEl.innerHTML = opcoes.map(o =>
+        `<option value="${o.key}" ${leadEtapaFiltro === o.key ? 'selected' : ''}>${o.label} (${o.count})</option>`
+      ).join('');
+      selEl.classList.toggle('filtro-ativo', leadEtapaFiltro !== 'todos');
+    }
+
     const items = document.getElementById('leadListItems');
     if (!campanhaLeads.length) {
       items.innerHTML = '<div style="padding:24px 12px;color:var(--text-muted);font-size:13px;text-align:center">Nenhum lead nesta campanha.</div>';
       return;
     }
     const filtro = leadFiltro.trim().toLowerCase();
-    const visiveis = filtro
-      ? campanhaLeads.filter(l => l.nome.toLowerCase().includes(filtro) || l.telefone.includes(filtro))
-      : campanhaLeads;
+    let visiveis = campanhaLeads;
+    if (leadEtapaFiltro === 'pendente')    visiveis = visiveis.filter(l => !l.classificacao);
+    else if (leadEtapaFiltro !== 'todos')  visiveis = visiveis.filter(l => l.classificacao === leadEtapaFiltro);
+    if (filtro) visiveis = visiveis.filter(l => l.nome.toLowerCase().includes(filtro) || l.telefone.includes(filtro));
     if (!visiveis.length) {
       items.innerHTML = '<div style="padding:24px 12px;color:var(--text-muted);font-size:13px;text-align:center">Nenhum lead encontrado.</div>';
       return;
@@ -4237,9 +4318,71 @@
     if (error) { alert('Erro ao salvar a etapa: ' + error.message); return; }
     lead.classificacao = novaClassif;
     lead.classificadoEm = novaClassif ? agora : null;
+    if (novaClassif === 'interesse' || novaClassif === 'outro_negocio') {
+      await enviarLeadProPipeline(lead);
+    }
     openLeadDetail(leadId);
     renderLeadList();
     checkCampanhaCompleta();
+  }
+
+  // ── Ponte campanha → Pipeline ─────────────────────────────────
+  // "Tem interesse" e "Outro negócio" mandam o lead pro Pipeline
+  // levando o nome da campanha e o histórico de anotações.
+  function historicoLeadTexto(lead) {
+    let arr = [];
+    try { const p = JSON.parse(lead.anotacoes || '[]'); if (Array.isArray(p)) arr = p; } catch(e) {}
+    return arr.map(a => {
+      const quando = new Date(a.em).toLocaleDateString('pt-BR') + ' ' +
+                     new Date(a.em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      const et = a.etapa ? ` [${campClassifLabel[a.etapa] || a.etapa}]` : '';
+      return `${quando}${et} — ${a.texto}`;
+    }).join('\n');
+  }
+
+  async function enviarLeadProPipeline(lead) {
+    const campNome = (document.getElementById('campanhaNomeHeader')?.textContent || '').trim() || 'Campanha';
+
+    // Garante um cliente vinculado ao lead
+    let clienteId = lead.clienteId;
+    if (!clienteId) {
+      const payload = mapClienteToDb({
+        nome: lead.nome, telefone: lead.telefone, email: '',
+        classificacao: 'ambos', status: 'prospect',
+        obs: `Origem: campanha ${campNome}`,
+      });
+      payload.created_by = currentUser.id;
+      const { data, error } = await supabaseClient.from('clientes').insert(payload).select('id').single();
+      if (error) { alert('Erro ao criar cliente do lead: ' + error.message); return; }
+      clienteId = data.id;
+      await supabaseClient.from('campanha_leads').update({ cliente_id: clienteId }).eq('id', lead.id);
+      lead.clienteId = clienteId;
+    }
+
+    // Evita duplicar: se o cliente já entrou no Pipeline por esta campanha, não cria outra oferta
+    const ofertas = await loadOfertas();
+    const jaExiste = ofertas.find(o => o.clienteId === clienteId && (o.obs || '').startsWith(`Campanha: ${campNome}`));
+    if (jaExiste) { showPipelineToast(`${lead.nome} já está no Pipeline`); return; }
+
+    const hist = historicoLeadTexto(lead);
+    const obs = `Campanha: ${campNome}` + (hist ? `\n— Histórico da campanha —\n${hist}` : '');
+    const payload = mapOfertaToDb({
+      clienteId, imovelId: null, estagio: 'ofertado',
+      data: new Date().toISOString().slice(0, 10),
+      valor: '', proximoContato: null, obs,
+    });
+    payload.created_by = currentUser.id;
+    const { error } = await supabaseClient.from('ofertas').insert(payload).select('id').single();
+    if (error) { alert('Erro ao enviar pro Pipeline: ' + error.message); return; }
+    showPipelineToast(`${lead.nome} enviado pro Pipeline`);
+  }
+
+  function showPipelineToast(texto) {
+    const toast = document.getElementById('resolvedToast');
+    document.getElementById('resolvedToastText').textContent = texto;
+    toast.classList.add('show');
+    clearTimeout(resolvedToastTimer);
+    resolvedToastTimer = setTimeout(() => toast.classList.remove('show'), 2600);
   }
 
   function checkCampanhaCompleta() {
@@ -4342,6 +4485,7 @@
     campanhaCsvLeads = [];
     document.getElementById('campModalTitle').textContent = 'Nova campanha';
     document.getElementById('campNome').value = '';
+    document.getElementById('campMetaAtendimento').value = '';
     document.getElementById('campCSVPreview').textContent = 'Clique ou arraste o arquivo CSV aqui';
     document.getElementById('campCSVInput').value = '';
     document.getElementById('campStatusWrap').style.display = 'none';
@@ -4393,6 +4537,7 @@
     const { data: c } = await supabaseClient.from('campanhas').select('*').eq('id', id).single();
     document.getElementById('campNome').value = c?.nome || '';
     document.getElementById('campStatus').value = c?.status || 'ativa';
+    document.getElementById('campMetaAtendimento').value = c?.meta_atendimento || '';
 
     // Mostrar quantos corretores estão na campanha (para round-robin ao trocar leads)
     const { data: corrs } = await supabaseClient.from('campanha_corretores')
@@ -4419,6 +4564,7 @@
   async function salvarCampanha() {
     const nome = document.getElementById('campNome').value.trim();
     const empId = document.getElementById('campEmpreendimento').value || null;
+    const metaAtendimento = document.getElementById('campMetaAtendimento').value || null;
 
     if (!nome) { document.getElementById('campNome').focus(); return; }
 
@@ -4459,7 +4605,7 @@
       }
 
       const { error } = await supabaseClient.from('campanhas')
-        .update({ nome, empreendimento_id: empId, status })
+        .update({ nome, empreendimento_id: empId, status, meta_atendimento: metaAtendimento })
         .eq('id', editingCampanhaId);
       if (error) { alert('Erro ao atualizar campanha: ' + error.message); return; }
       closeCampanhaModal();
@@ -4474,7 +4620,7 @@
 
     // Inserir campanha
     const { data: camp, error } = await supabaseClient.from('campanhas').insert({
-      nome, empreendimento_id: empId, created_by: currentUser.id,
+      nome, empreendimento_id: empId, created_by: currentUser.id, meta_atendimento: metaAtendimento,
     }).select('id').single();
     if (error) { alert('Erro ao criar campanha: ' + error.message); return; }
 
@@ -4807,13 +4953,22 @@
   }
 
   // ── Pipeline Kanban ──────────────────────────────────────────
-  const pipelineStages = ['ofertado','visitado','negociacao','proposta','fechado','semresposta','recusado'];
+  const pipelineStages = ['ofertado','visitado','proposta','contrato','fechado','recusado'];
 
   async function renderPipeline() {
     const board = document.getElementById('kanbanBoard');
     const me = currentUser && currentUser.id;
     const isAdmin = currentProfile && currentProfile.role === 'admin';
     const ofertas = (await loadOfertas()).filter(o => o.createdBy === me || isAdmin);
+
+    // Migra registros de estágios desativados pros equivalentes atuais
+    const estagioLegado = { negociacao: 'proposta', semresposta: 'recusado' };
+    for (const o of ofertas) {
+      if (estagioLegado[o.estagio]) {
+        await supabaseClient.from('ofertas').update({ estagio: estagioLegado[o.estagio] }).eq('id', o.id);
+        o.estagio = estagioLegado[o.estagio];
+      }
+    }
     const imoveis = await loadData();
     const clientes = await loadClientes();
     const imById = Object.fromEntries(imoveis.map(i => [i.id, i]));
@@ -4824,9 +4979,11 @@
       const cards = lista.map(o => {
         const im = imById[o.imovelId]; const cl = clById[o.clienteId];
         const staleLevel = staleLevelOferta(o);
+        const origemCampanha = !o.imovelId && (o.obs || '').startsWith('Campanha: ') ? o.obs.split('\n')[0] : null;
         return `<div class="kanban-card${staleLevel ? ' kanban-card-stale-'+staleLevel : ''}" draggable="true" data-oferta="${o.id}">
           ${im && im.codigo ? `<div class="kanban-card-code">${escHtml(im.codigo)}</div>` : ''}
-          <div class="kanban-card-addr">${escHtml(im ? (im.endereco || '—') : 'Imóvel removido')}</div>
+          ${origemCampanha ? `<div class="kanban-card-code">📣 ${escHtml(origemCampanha)}</div>` : ''}
+          <div class="kanban-card-addr">${escHtml(im ? (im.endereco || '—') : (origemCampanha ? 'Imóvel a definir' : 'Imóvel removido'))}</div>
           <div class="kanban-card-cliente">${escHtml(clienteDisplayName(cl))}</div>
           ${o.valor ? `<div class="kanban-card-valor">${escHtml(fmtCurrency(o.valor))}</div>` : ''}
           ${staleBadgeHtml(staleLevel, diasDesde(o.updatedAt))}
