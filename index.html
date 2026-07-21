@@ -3940,7 +3940,11 @@
 
     const todas = await loadCampanhas();
     const mineIds = isAdmin ? null : await loadMeusCampanhaIds();
-    const visiveis = isAdmin ? todas : todas.filter(c => mineIds.includes(c.id));
+    const hoje = new Date().toISOString().slice(0,10);
+    // Corretor não vê campanha com prazo vencido; admin sempre vê tudo e pode estender o prazo.
+    const visiveis = isAdmin ? todas : todas.filter(c =>
+      mineIds.includes(c.id) && !(c.metaAtendimento && c.metaAtendimento < hoje)
+    );
 
     const grid = document.getElementById('campanhaCardsGrid');
     if (!visiveis.length) {
