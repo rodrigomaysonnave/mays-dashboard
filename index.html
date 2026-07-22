@@ -1278,11 +1278,12 @@
     <div class="modal-body">
       <div class="form-grid">
         <div class="form-group" style="grid-column:1/-1">
-          <label>Empreendimento</label>
-          <div style="display:flex;gap:8px;align-items:center">
+          <label>Vincular a <span style="font-size:11px;color:var(--text-muted)">(opcional — escolha um empreendimento OU um imóvel do Radar)</span></label>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
             <select id="campEmpreendimento" style="flex:1"></select>
             <button type="button" class="btn btn-ghost" style="flex-shrink:0;padding:0 10px;height:36px;font-size:18px;line-height:1" title="Cadastrar novo empreendimento" onclick="abrirEmpreendimentoDaCampanha()">+</button>
           </div>
+          <select id="campImovel" style="width:100%"></select>
         </div>
         <div class="form-group" style="grid-column:1/-1">
           <label>Nome da campanha</label>
@@ -1634,6 +1635,7 @@
             <option value="Galpão">Galpão</option>
             <option value="Prédio Comercial">Prédio Comercial</option>
             <option value="Terreno Comercial">Terreno Comercial</option>
+            <option value="Campo">Campo</option>
             <option value="Outro">Outro</option>
           </select>
         </div>
@@ -3903,7 +3905,7 @@
     if (error) { console.error(error); return []; }
     return data.map(r => ({
       id: r.id, nome: r.nome, status: r.status,
-      empreendimentoId: r.empreendimento_id, createdBy: r.created_by,
+      empreendimentoId: r.empreendimento_id, imovelId: r.imovel_id, createdBy: r.created_by,
       createdAt: r.created_at, metaAtendimento: r.meta_atendimento,
     }));
   }
@@ -4505,6 +4507,17 @@
     sel.onchange = () => {
       const emp = emps.find(e => e.id === sel.value);
       if (emp && !document.getElementById('campNome').value) document.getElementById('campNome').value = emp.nome;
+      if (sel.value) document.getElementById('campImovel').value = '';
+    };
+
+    const imoveisList = await loadData();
+    const selIm = document.getElementById('campImovel');
+    selIm.innerHTML = '<option value="">Selecionar imóvel do Radar…</option>' +
+      imoveisList.map(im => `<option value="${im.id}">${escHtml([im.endereco, im.bairro].filter(Boolean).join(' — '))}</option>`).join('');
+    selIm.onchange = () => {
+      const im = imoveisList.find(i => i.id === selIm.value);
+      if (im && !document.getElementById('campNome').value) document.getElementById('campNome').value = [im.endereco, im.bairro].filter(Boolean).join(' — ');
+      if (selIm.value) sel.value = '';
     };
 
     const profiles = await loadAllProfiles();
@@ -4558,6 +4571,12 @@
       emps.map(e => `<option value="${e.id}" ${e.id === c?.empreendimento_id ? 'selected' : ''}>${escHtml(e.nome)}</option>`).join('');
     sel.onchange = null;
 
+    const imoveisList = await loadData();
+    const selIm = document.getElementById('campImovel');
+    selIm.innerHTML = '<option value="">Selecionar imóvel do Radar…</option>' +
+      imoveisList.map(im => `<option value="${im.id}" ${im.id === c?.imovel_id ? 'selected' : ''}>${escHtml([im.endereco, im.bairro].filter(Boolean).join(' — '))}</option>`).join('');
+    selIm.onchange = null;
+
     document.getElementById('modalOverlayCampanha').classList.add('open');
   }
 
@@ -4570,6 +4589,7 @@
   async function salvarCampanha() {
     const nome = document.getElementById('campNome').value.trim();
     const empId = document.getElementById('campEmpreendimento').value || null;
+    const imovelId = document.getElementById('campImovel').value || null;
     const metaAtendimento = document.getElementById('campMetaAtendimento').value || null;
 
     if (!nome) { document.getElementById('campNome').focus(); return; }
@@ -4611,7 +4631,7 @@
       }
 
       const { error } = await supabaseClient.from('campanhas')
-        .update({ nome, empreendimento_id: empId, status, meta_atendimento: metaAtendimento })
+        .update({ nome, empreendimento_id: empId, imovel_id: imovelId, status, meta_atendimento: metaAtendimento })
         .eq('id', editingCampanhaId);
       if (error) { alert('Erro ao atualizar campanha: ' + error.message); return; }
       closeCampanhaModal();
@@ -4626,7 +4646,7 @@
 
     // Inserir campanha
     const { data: camp, error } = await supabaseClient.from('campanhas').insert({
-      nome, empreendimento_id: empId, created_by: currentUser.id, meta_atendimento: metaAtendimento,
+      nome, empreendimento_id: empId, imovel_id: imovelId, created_by: currentUser.id, meta_atendimento: metaAtendimento,
     }).select('id').single();
     if (error) { alert('Erro ao criar campanha: ' + error.message); return; }
 
@@ -5408,6 +5428,7 @@
       comerc: /comerc|loja|sala|gal[pãa]|pr[eé]dio/.test(t),
       resid: /apart|apto|casa|residenc|sobrado|cobertura/.test(t),
       terreno: /terreno|lote/.test(t),
+      rural: /campo|fazenda|s[ií]tio|ch[aá]cara|rural/.test(t),
     };
   }
   function scoreMatch(im, radar) {
