@@ -1312,7 +1312,7 @@
           <div id="campCorretoresCheckboxes" style="display:flex;flex-wrap:wrap;gap:8px;padding:8px 0"></div>
         </div>
         <div id="campCSVWrap" class="form-group" style="grid-column:1/-1">
-          <label>Lista de leads (CSV: nome,telefone — uma linha por lead)</label>
+          <label>Lista de leads (CSV: nome,telefone,email — e-mail é opcional, uma linha por lead)</label>
           <div class="photo-drop-zone" id="campCSVZone">
             <input type="file" id="campCSVInput" accept=".csv,.txt,.xlsx,.xls">
             <div id="campCSVPreview" style="text-align:center;color:var(--text-muted);font-size:13px;pointer-events:none">Clique ou arraste o arquivo CSV aqui</div>
@@ -3921,7 +3921,7 @@
     if (error) { console.error(error); return []; }
     return data.map(r => ({
       id: r.id, campanhaId: r.campanha_id, corretorId: r.corretor_id,
-      nome: r.nome, telefone: r.telefone, classificacao: r.classificacao,
+      nome: r.nome, telefone: r.telefone, email: r.email || '', classificacao: r.classificacao,
       anotacoes: r.anotacoes || '', clienteId: r.cliente_id,
       classificadoEm: r.classificado_em,
       crmEstagio: r.crm_estagio || null,
@@ -4163,7 +4163,7 @@
     let visiveis = campanhaLeads;
     if (leadEtapaFiltro === 'pendente')    visiveis = visiveis.filter(l => !l.classificacao);
     else if (leadEtapaFiltro !== 'todos')  visiveis = visiveis.filter(l => l.classificacao === leadEtapaFiltro);
-    if (filtro) visiveis = visiveis.filter(l => l.nome.toLowerCase().includes(filtro) || l.telefone.includes(filtro));
+    if (filtro) visiveis = visiveis.filter(l => l.nome.toLowerCase().includes(filtro) || l.telefone.includes(filtro) || (l.email || '').toLowerCase().includes(filtro));
     if (!visiveis.length) {
       items.innerHTML = '<div style="padding:24px 12px;color:var(--text-muted);font-size:13px;text-align:center">Nenhum lead encontrado.</div>';
       return;
@@ -4174,7 +4174,7 @@
         <div class="lead-dot"></div>
         <div style="min-width:0">
           <div class="lead-nome">${escHtml(l.nome)}</div>
-          <div class="lead-tel">${escHtml(l.telefone)}</div>
+          <div class="lead-tel">${escHtml(l.telefone)}${l.email ? ' · '+escHtml(l.email) : ''}</div>
         </div>
       </button>`).join('');
   }
@@ -4240,9 +4240,11 @@
       <div class="lead-detail-header">
         <div class="lead-detail-name">${escHtml(lead.nome)}</div>
         <div class="lead-detail-phone">${escHtml(lead.telefone)}</div>
+        ${lead.email ? `<div class="lead-detail-phone">${escHtml(lead.email)}</div>` : ''}
         <div class="lead-contact-btns">
           <a href="${telLink}" class="btn btn-ghost btn-sm">📞 Ligar</a>
           <a href="${waLink}" target="_blank" class="btn btn-ghost btn-sm">💬 WhatsApp</a>
+          ${lead.email ? `<a href="mailto:${escHtml(lead.email)}" class="btn btn-ghost btn-sm">✉️ E-mail</a>` : ''}
         </div>
       </div>
       <div class="classif-label">Etapa</div>
@@ -4351,7 +4353,7 @@
     let clienteId = lead.clienteId;
     if (!clienteId) {
       const payload = mapClienteToDb({
-        nome: lead.nome, telefone: lead.telefone, email: '',
+        nome: lead.nome, telefone: lead.telefone, email: lead.email || '',
         classificacao: 'ambos', status: 'prospect',
         obs: `Origem: campanha ${campNome}`,
       });
@@ -4597,7 +4599,7 @@
         const leadsPayload = campanhaCsvLeads.map((l, i) => ({
           campanha_id: editingCampanhaId,
           corretor_id: corretoresIds[i % corretoresIds.length],
-          nome: l.nome, telefone: l.telefone,
+          nome: l.nome, telefone: l.telefone, email: l.email || null,
         }));
         const BATCH = 200;
         for (let i = 0; i < leadsPayload.length; i += BATCH) {
@@ -4637,7 +4639,7 @@
     const leadsPayload = campanhaCsvLeads.map((l, i) => ({
       campanha_id: camp.id,
       corretor_id: corretoresIds[i % corretoresIds.length],
-      nome: l.nome, telefone: l.telefone,
+      nome: l.nome, telefone: l.telefone, email: l.email || null,
     }));
     const BATCH = 200;
     for (let i = 0; i < leadsPayload.length; i += BATCH) {
@@ -4672,10 +4674,12 @@
       rows.forEach((row, i) => {
         const col0 = String(row[0] || '').trim();
         const col1 = String(row[1] || '').trim();
+        const col2 = String(row[2] || '').trim();
         if (i === 0 && /nome|telefone|phone|contato/i.test(col0)) return;
         const nome = col0;
         const telefone = col1.replace(/\D/g, '');
-        if (nome && telefone) campanhaCsvLeads.push({ nome, telefone });
+        const email = col2;
+        if (nome && telefone) campanhaCsvLeads.push({ nome, telefone, email });
       });
       document.getElementById(previewId).textContent =
         campanhaCsvLeads.length
@@ -4694,7 +4698,8 @@
       const parts = line.split(',');
       const nome = (parts[0] || '').replace(/^"|"$/g,'').trim();
       const telefone = (parts[1] || '').replace(/^"|"$/g,'').trim().replace(/\D/g,'');
-      if (nome && telefone) campanhaCsvLeads.push({ nome, telefone });
+      const email = (parts[2] || '').replace(/^"|"$/g,'').trim();
+      if (nome && telefone) campanhaCsvLeads.push({ nome, telefone, email });
     });
     document.getElementById(previewId).textContent =
       campanhaCsvLeads.length
