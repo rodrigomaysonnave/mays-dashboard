@@ -2728,7 +2728,7 @@
       const tel = item.proprietarioTelefone;
       const telLink = tel ? `<a href="tel:${escHtml(tel)}" style="color:var(--gold)">${escHtml(tel)}</a>` : '';
       const waLink  = tel ? ` &nbsp;<a href="https://wa.me/55${tel.replace(/\D/g,'')}" target="_blank" rel="noopener" style="color:var(--gold);font-size:12px">WhatsApp</a>` : '';
-      const emailLink = item.proprietarioEmail ? `<a href="mailto:${escHtml(item.proprietarioEmail)}" style="color:var(--gold)">${escHtml(item.proprietarioEmail)}</a>` : '';
+      const emailLink = item.proprietarioEmail ? `<a href="mailto:${escHtml(item.proprietarioEmail)}" target="_blank" style="color:var(--gold)">${escHtml(item.proprietarioEmail)}</a>` : '';
       propEl.innerHTML = `<hr class="drawer-divider"><div class="drawer-section">
         <div class="drawer-section-label">Proprietário</div>
         <div class="info-grid">
@@ -4246,7 +4246,7 @@
         <div class="lead-contact-btns">
           <a href="${telLink}" class="btn btn-ghost btn-sm">📞 Ligar</a>
           <a href="${waLink}" target="_blank" class="btn btn-ghost btn-sm">💬 WhatsApp</a>
-          ${lead.email ? `<a href="mailto:${escHtml(lead.email)}" class="btn btn-ghost btn-sm">✉️ E-mail</a>` : ''}
+          ${lead.email ? `<a href="mailto:${escHtml(lead.email)}" target="_blank" class="btn btn-ghost btn-sm">✉️ E-mail</a>` : ''}
         </div>
       </div>
       <div class="classif-label">Etapa</div>
