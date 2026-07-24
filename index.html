@@ -79,6 +79,16 @@
     .filter-btn:hover { border-color: var(--gold-dim); color: var(--text); }
     .filter-btn.active { background: var(--gold); border-color: var(--gold); color: #0f0f0f; font-weight: 600; }
 
+    .search-box { position: relative; display: flex; align-items: center; }
+    .search-box .search-icon { position: absolute; left: 10px; color: var(--text-muted); pointer-events: none; }
+    .search-box input {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 20px;
+      color: var(--text); font-size: 12px; font-family: inherit;
+      padding: 6px 12px 6px 28px; width: 220px; transition: border-color 0.15s;
+    }
+    .search-box input::placeholder { color: var(--text-muted); }
+    .search-box input:focus { outline: none; border-color: var(--gold-dim); }
+
     /* ── Buttons ─────────────────────────────────────────────── */
     .btn {
       display: inline-flex; align-items: center; gap: 6px;
@@ -1038,6 +1048,10 @@
         <p class="section-meta" id="radarMeta">Imóveis que você cadastrou</p>
       </div>
       <div class="section-actions">
+        <div class="search-box">
+          <svg class="search-icon" width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="5.5" cy="5.5" r="4.3" stroke="currentColor" stroke-width="1.3"/><path d="M8.7 8.7L12 12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          <input type="text" id="radarSearchInput" placeholder="Buscar por endereço, bairro, código..." oninput="filtrarRadar(this.value)">
+        </div>
         <div class="filter-group" id="filterGroup">
           <button class="filter-btn active" data-filter="todos">Todos</button>
           <button class="filter-btn" data-filter="alta">Alta</button>
@@ -2515,6 +2529,12 @@
 
   // ── Cards ─────────────────────────────────────────────────────
   let activeFilter = 'todos';
+  let radarSearchQuery = '';
+
+  function filtrarRadar(texto) {
+    radarSearchQuery = texto;
+    renderCards();
+  }
 
   async function renderCards() {
     const me = currentUser && currentUser.id;
@@ -2544,21 +2564,29 @@
         : 'Imóveis que você cadastrou';
     document.getElementById('btnAdd').style.display = (isGlobal || isVendido) ? 'none' : '';
 
-    const filtered = activeFilter === 'todos' ? data : data.filter(d => d.prioridade === activeFilter);
+    const byPrioridade = activeFilter === 'todos' ? data : data.filter(d => d.prioridade === activeFilter);
+    const q = radarSearchQuery.trim().toLowerCase();
+    const filtered = q
+      ? byPrioridade.filter(d => [d.endereco, d.bairro, d.tipo, d.codigo, d.motivo, d.status].filter(Boolean).join(' ').toLowerCase().includes(q))
+      : byPrioridade;
     const grid = document.getElementById('cardsGrid');
 
     if (!filtered.length) {
-      const vazioTitulo = isVendido
+      const vazioTitulo = q
+        ? 'Nenhum imóvel encontrado'
+        : isVendido
         ? 'Nenhum imóvel vendido ainda'
         : isGlobal
           ? (activeFilter==='todos' ? 'Nenhum imóvel de outros corretores ainda' : 'Nenhum imóvel com prioridade '+activeFilter)
           : (activeFilter==='todos' ? 'Você ainda não cadastrou imóveis' : 'Nenhum imóvel com prioridade '+activeFilter);
-      const vazioTexto = isVendido
+      const vazioTexto = q
+        ? `Nenhum resultado para "${escHtml(radarSearchQuery.trim())}". Tente outro termo de busca.`
+        : isVendido
         ? 'Quando uma oferta for marcada como "Fechado" no Pipeline, o imóvel aparece aqui.'
         : isGlobal
           ? 'Quando outros corretores cadastrarem imóveis, eles aparecem aqui.'
           : (activeFilter==='todos' ? 'Adicione o primeiro imóvel pra começar a monitorar oportunidades.' : 'Tente outro filtro ou adicione um imóvel novo.');
-      const vazioBtn = (!isGlobal && !isVendido && activeFilter==='todos')
+      const vazioBtn = (!isGlobal && !isVendido && activeFilter==='todos' && !q)
         ? '<button class="btn btn-primary" onclick="openModal()"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg> Adicionar imóvel</button>'
         : '';
       grid.innerHTML = `
