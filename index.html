@@ -4043,6 +4043,21 @@
     grid.innerHTML = cards.join('');
   }
 
+  async function carregarVisitasLp(leadIds) {
+    const mapa = new Map();
+    const LOTE = 150;  // evita estourar limite de tamanho da URL em campanhas com muitos leads
+    for (let i = 0; i < leadIds.length; i += LOTE) {
+      const { data: visitas, error } = await supabaseClient
+        .from('campanha_lp_visitas')
+        .select('lead_id, visited_at')
+        .in('lead_id', leadIds.slice(i, i + LOTE))
+        .order('visited_at', { ascending: true });
+      if (error) { console.error('Erro ao carregar visitas de LP:', error); continue; }
+      (visitas || []).forEach(v => { if (!mapa.has(v.lead_id)) mapa.set(v.lead_id, v.visited_at); });
+    }
+    return mapa;
+  }
+
   async function openCampanhaPage(id) {
     campanhaAtualId = id;
     campMsgRotationIndex = 0;
@@ -4052,41 +4067,46 @@
     const searchEl = document.getElementById('leadSearchInput');
     if (searchEl) searchEl.value = '';
     document.getElementById('leadListPanel').classList.remove('hidden-mobile');
-    campanhaLeads = await loadLeadsDaCampanha(id);
 
-    // Buscar dados da campanha (nome, prazo, vínculo, templates de mensagem)
-    const { data: camp } = await supabaseClient.from('campanhas')
-      .select('nome, created_at, meta_atendimento, empreendimento_id, imovel_id, lp_url, msg_template_1, msg_template_2, msg_template_3, imagem_primeira_msg')
-      .eq('id', id).single();
-    document.getElementById('campanhaNomeHeader').textContent = camp?.nome || '';
-    const inicio = camp?.created_at ? fmtDateBR(camp.created_at.slice(0,10)) : '—';
-    const fim = camp?.meta_atendimento ? fmtDateBR(camp.meta_atendimento) : 'sem prazo definido';
-    document.getElementById('campanhaPeriodoHeader').textContent = `Início: ${inicio}  ·  Meta de atendimento: ${fim}`;
+    try {
+      campanhaLeads = await loadLeadsDaCampanha(id);
 
-    let vinculoNome = '';
-    if (camp?.empreendimento_id) {
-      const { data: emp } = await supabaseClient.from('empreendimentos').select('nome').eq('id', camp.empreendimento_id).single();
-      vinculoNome = emp?.nome || '';
-    } else if (camp?.imovel_id) {
-      const { data: im } = await supabaseClient.from('imoveis').select('endereco').eq('id', camp.imovel_id).single();
-      vinculoNome = im?.endereco || '';
-    }
-    campanhaAtual = {
-      nome: camp?.nome || '',
-      vinculoNome,
-      lpUrl: camp?.lp_url || null,
-      templates: [camp?.msg_template_1, camp?.msg_template_2, camp?.msg_template_3].filter(t => t && t.trim()),
-      imagemPrimeiraMsg: camp?.imagem_primeira_msg || null,
-    };
+      // Buscar dados da campanha (nome, prazo, vínculo, templates de mensagem)
+      const { data: camp, error: campErro } = await supabaseClient.from('campanhas')
+        .select('nome, created_at, meta_atendimento, empreendimento_id, imovel_id, lp_url, msg_template_1, msg_template_2, msg_template_3, imagem_primeira_msg')
+        .eq('id', id).single();
+      if (campErro) throw campErro;
+      document.getElementById('campanhaNomeHeader').textContent = camp?.nome || '';
+      const inicio = camp?.created_at ? fmtDateBR(camp.created_at.slice(0,10)) : '—';
+      const fim = camp?.meta_atendimento ? fmtDateBR(camp.meta_atendimento) : 'sem prazo definido';
+      document.getElementById('campanhaPeriodoHeader').textContent = `Início: ${inicio}  ·  Meta de atendimento: ${fim}`;
 
-    campanhaLpVisitas = new Map();
-    if (campanhaLeads.length) {
-      const { data: visitas } = await supabaseClient
-        .from('campanha_lp_visitas')
-        .select('lead_id, visited_at')
-        .in('lead_id', campanhaLeads.map(l => l.id))
-        .order('visited_at', { ascending: true });
-      (visitas || []).forEach(v => { if (!campanhaLpVisitas.has(v.lead_id)) campanhaLpVisitas.set(v.lead_id, v.visited_at); });
+      let vinculoNome = '';
+      try {
+        if (camp?.empreendimento_id) {
+          const { data: emp } = await supabaseClient.from('empreendimentos').select('nome').eq('id', camp.empreendimento_id).single();
+          vinculoNome = emp?.nome || '';
+        } else if (camp?.imovel_id) {
+          const { data: im } = await supabaseClient.from('imoveis').select('endereco').eq('id', camp.imovel_id).single();
+          vinculoNome = im?.endereco || '';
+        }
+      } catch (e) { console.error('Erro ao resolver vínculo da campanha:', e); }
+
+      campanhaAtual = {
+        nome: camp?.nome || '',
+        vinculoNome,
+        lpUrl: camp?.lp_url || null,
+        templates: [camp?.msg_template_1, camp?.msg_template_2, camp?.msg_template_3].filter(t => t && t.trim()),
+        imagemPrimeiraMsg: camp?.imagem_primeira_msg || null,
+      };
+
+      campanhaLpVisitas = campanhaLeads.length
+        ? await carregarVisitasLp(campanhaLeads.map(l => l.id))
+        : new Map();
+    } catch (e) {
+      console.error('Erro ao abrir campanha:', e);
+      alert('Não foi possível carregar essa campanha: ' + (e?.message || e));
+      return;
     }
 
     renderLeadList();
