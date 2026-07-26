@@ -314,7 +314,7 @@
     .progress-bar-wrap   { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin: 4px 0 0; }
     .progress-bar-fill   { height: 100%; background: var(--gold); border-radius: 3px; transition: width 0.3s; }
 
-    .campanha-page-grid  { display: grid; grid-template-columns: 280px 1fr; height: calc(100vh - 56px); overflow: hidden; }
+    .campanha-page-grid  { display: grid; grid-template-columns: 280px 1fr; flex: 1; min-height: 0; overflow: hidden; }
     .lead-list-panel     { border-right: 1px solid var(--border); overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 4px; }
     .lead-search { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); padding: 8px 10px; font-size: 13px; font-family: inherit; flex-shrink: 0; margin-bottom: 4px; }
     .lead-search:focus { outline: none; border-color: var(--gold-dim); }
@@ -423,15 +423,15 @@
       .modal-overlay { align-items: flex-end; }
       .drawer { width: 100%; max-width: 100%; }
       .fullpage-overlay { overflow-y: auto; }
-      /* Campanha: painel único no mobile */
-      .campanha-page-grid { grid-template-columns: 1fr; height: auto; overflow: visible; }
-      .lead-list-panel { border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
-      .lead-detail-panel { padding: 16px 12px; }
+      /* Campanha: painel único no mobile (lista OU detalhe, cada um ocupando a tela toda) */
+      .campanha-page-grid { grid-template-columns: 1fr; }
+      .lead-list-panel { border-right: none; }
+      .lead-detail-panel { display: none; padding: 16px 12px; }
       .nova-anotacao-wrap { flex-direction: column; align-items: stretch; }
       .nova-anotacao-input { width: 100%; min-width: 0; }
       .nova-anotacao-ok { width: 100%; align-self: stretch; padding: 12px; font-size: 14px; }
       .lead-list-panel.hidden-mobile { display: none; }
-      .lead-detail-panel.visible-mobile { display: block; }
+      .lead-list-panel.hidden-mobile ~ .lead-detail-panel { display: block; }
       .campanha-progress-header { flex-wrap: wrap; gap: 8px; padding: 8px 12px; }
       .campanha-progress-bar { width: 100%; order: 3; }
       .campanha-progress-text { order: 2; }
@@ -4113,12 +4113,14 @@
     document.getElementById('leadDetailPanel').innerHTML = '<div style="color:var(--text-muted);font-size:14px;margin-top:40px;text-align:center">← Selecione um lead para começar</div>';
 
     const pg = document.getElementById('pageCampanha');
-    pg.style.display = 'block';
+    pg.style.display = 'flex';
+    pg.style.flexDirection = 'column';
   }
 
   function closeCampanhaPage() {
     const pg = document.getElementById('pageCampanha');
     pg.style.display = '';
+    pg.style.flexDirection = '';
     campanhaAtualId = null;
     campanhaAtual   = null;
     campanhaLpVisitas = new Map();
