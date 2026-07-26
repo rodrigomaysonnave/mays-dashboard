@@ -4025,6 +4025,9 @@
                 ${isAdmin ? `<button class="btn-icon" title="Editar campanha" onclick="event.stopPropagation();editarCampanha('${c.id}')">
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9.5 2.5l2 2L4 12H2v-2L9.5 2.5z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </button>` : ''}
+                ${isAdmin ? `<button class="btn-icon" title="Duplicar campanha" onclick="event.stopPropagation();duplicarCampanha('${c.id}')">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="4.5" y="4.5" width="8" height="8" rx="1.2" stroke="currentColor" stroke-width="1.4"/><path d="M9.5 4.5V2.7A1.2 1.2 0 0 0 8.3 1.5H2.7A1.2 1.2 0 0 0 1.5 2.7v5.6a1.2 1.2 0 0 0 1.2 1.2H4.5" stroke="currentColor" stroke-width="1.4"/></svg>
+                </button>` : ''}
                 ${meu ? `<button class="btn-icon" title="Excluir" onclick="event.stopPropagation();deleteCampanha('${c.id}')">
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 3h10M5 3V2h4v1M3 3l.8 9h6.4L11 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </button>` : ''}
@@ -4858,6 +4861,33 @@
       () => abrirEdicaoCampanha(id),
       { html: true, okLabel: 'Continuar', danger: false }
     );
+  }
+
+  // Copia os dados da campanha (vínculo, LP, templates, imagem, corretores)
+  // pro modal de criação, já aberto pra revisão — leads e nome (com
+  // sufixo "cópia") ficam por conta do usuário, cada campanha precisa
+  // da sua própria lista.
+  async function duplicarCampanha(id) {
+    const { data: c } = await supabaseClient.from('campanhas').select('*').eq('id', id).single();
+    if (!c) return;
+    const { data: corrs } = await supabaseClient.from('campanha_corretores').select('corretor_id').eq('campanha_id', id);
+    const corretorIds = (corrs || []).map(r => r.corretor_id);
+
+    await openCampanhaModal();
+
+    document.getElementById('campModalTitle').textContent = 'Duplicar campanha';
+    document.getElementById('campNome').value = c.nome ? `${c.nome} (cópia)` : '';
+    document.getElementById('campEmpreendimento').value = c.empreendimento_id || '';
+    document.getElementById('campImovel').value = c.imovel_id || '';
+    document.getElementById('campLpUrl').value = c.lp_url || '';
+    document.getElementById('campMsgTemplate1').value = c.msg_template_1 || '';
+    document.getElementById('campMsgTemplate2').value = c.msg_template_2 || '';
+    document.getElementById('campMsgTemplate3').value = c.msg_template_3 || '';
+    campImagemB64 = c.imagem_primeira_msg || null;
+    mostrarPreviewCampImagem(campImagemB64);
+    document.querySelectorAll('.corretor-check').forEach(chk => {
+      chk.checked = corretorIds.includes(chk.value);
+    });
   }
 
   async function abrirEdicaoCampanha(id) {
