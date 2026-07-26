@@ -4560,7 +4560,7 @@
     const nomeCamp = document.getElementById('campanhaNomeHeader').textContent || 'Campanha';
     const total = campanhaLeads.length;
     const pendentes = campanhaLeads.filter(l => !l.classificacao).length;
-    const linhas = [
+    const resumo = [
       pendentes ? { label: 'Pendente', count: pendentes } : null,
       ...Object.entries(campClassifLabel).map(([k, v]) => {
         const count = campanhaLeads.filter(l => l.classificacao === k).length;
@@ -4568,34 +4568,51 @@
       }),
     ].filter(Boolean);
 
-    const funilHtml = linhas.map(l => `
-      <tr>
-        <td style="padding:10px 0;border-bottom:1px solid #eee;font-size:13px;color:#333;">${escHtml(l.label)}</td>
-        <td style="padding:10px 0;border-bottom:1px solid #eee;font-size:13px;color:#0f0f0f;font-weight:700;text-align:right;">${l.count}</td>
+    const resumoHtml = resumo.map(l =>
+      `<span style="display:inline-block;margin:0 14px 6px 0;font-size:11px;color:#666;">${escHtml(l.label)} <strong style="color:#0f0f0f">${l.count}</strong></span>`
+    ).join('');
+
+    const linhasLeads = campanhaLeads.map(l => `
+      <tr style="page-break-inside:avoid;">
+        <td style="padding:8px 10px;border-bottom:1px solid #eee;font-size:12px;color:#0f0f0f;">${escHtml(l.nome)}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #eee;font-size:12px;color:#333;">${escHtml(l.telefone)}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #eee;font-size:12px;color:#333;">${escHtml(campClassifLabel[l.classificacao] || 'Pendente')}</td>
       </tr>`).join('');
 
     const vinculo = campanhaAtual?.vinculoNome ? `<div style="font-size:13px;color:#666;margin-top:4px;">${escHtml(campanhaAtual.vinculoNome)}</div>` : '';
     const geradoEm = new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
 
-    const html = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#0f0f0f;background:#fff;display:flex;flex-direction:column;min-height:277mm;">
-      <div style="height:6px;background:#c9a84c;flex-shrink:0;"></div>
-      <div style="background:#0f0f0f;padding:20px 24px;display:flex;align-items:center;gap:16px;flex-shrink:0;">
+    const html = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#0f0f0f;background:#fff;">
+      <div style="height:6px;background:#c9a84c;"></div>
+      <div style="background:#0f0f0f;padding:20px 24px;display:flex;align-items:center;gap:16px;">
         <img src="${LOGO_BASE64_CAMPANHA}" style="height:36px;width:auto;flex-shrink:0;" />
         <div style="flex:1;">
           <div style="color:#f0f0f0;font-size:16px;font-weight:700;">Relatório de Campanha</div>
         </div>
       </div>
-      <div style="padding:28px 30px;flex:1;">
+      <div style="padding:24px 26px 6px;">
         <div style="font-size:22px;font-weight:800;">${escHtml(nomeCamp)}</div>
         ${vinculo}
-        <div style="font-size:12px;color:#999;margin:6px 0 20px;">${total} leads no total</div>
-        <table style="width:100%;border-collapse:collapse;">${funilHtml}</table>
+        <div style="font-size:12px;color:#999;margin:6px 0 14px;">${total} leads no total</div>
+        <div style="margin-bottom:16px;">${resumoHtml}</div>
       </div>
-      <div style="padding:16px 30px;border-top:1px solid #eee;font-size:10px;color:#999;">Gerado em ${geradoEm}</div>
+      <div style="padding:0 26px 24px;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead style="display:table-header-group;">
+            <tr>
+              <th style="text-align:left;padding:8px 10px;border-bottom:2px solid #0f0f0f;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#999;">Nome</th>
+              <th style="text-align:left;padding:8px 10px;border-bottom:2px solid #0f0f0f;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#999;">Telefone</th>
+              <th style="text-align:left;padding:8px 10px;border-bottom:2px solid #0f0f0f;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#999;">Etapa</th>
+            </tr>
+          </thead>
+          <tbody>${linhasLeads}</tbody>
+        </table>
+      </div>
+      <div style="padding:16px 26px;border-top:1px solid #eee;font-size:10px;color:#999;">Gerado em ${geradoEm}</div>
     </div>`;
 
     const w = window.open('', '_blank');
-    w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Relatório de Campanha</title><style>@page{size:A4 portrait;margin:0;}*{box-sizing:border-box;}html,body{height:100%;margin:0;}body{padding:10mm;display:flex;flex-direction:column;}img{max-width:100%;display:block;}</style></head><body>' + html + '</body></html>');
+    w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Relatório de Campanha</title><style>@page{size:A4 portrait;margin:0;}*{box-sizing:border-box;}html,body{margin:0;}body{padding:10mm;}img{max-width:100%;display:block;}</style></head><body>' + html + '</body></html>');
     w.document.close();
     setTimeout(() => { w.focus(); w.print(); w.close(); }, 400);
   }
