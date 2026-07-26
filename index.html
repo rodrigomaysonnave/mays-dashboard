@@ -4042,6 +4042,7 @@
 
   async function openCampanhaPage(id) {
     campanhaAtualId = id;
+    campMsgRotationIndex = 0;
     leadAtivoId = null;
     leadFiltro = '';
     leadEtapaFiltro = 'todos';
@@ -4258,21 +4259,21 @@
       </button>`).join('');
   }
 
-  // ── Template de mensagem (rodízio determinístico) e link rastreável ──
+  // ── Template de mensagem (rodízio por ordem de envio) e link rastreável ──
   function primeiroNome(nome) {
     return (nome || '').trim().split(/\s+/)[0] || '';
   }
 
-  function hashLeadId(id) {
-    let h = 0;
-    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-    return h;
-  }
+  // Avança 1, 2, 3, 1, 2, 3... a cada mensagem enviada nesta campanha
+  // (reseta quando a campanha é reaberta). Ver openCampanhaPage.
+  let campMsgRotationIndex = 0;
 
-  function escolherTemplateMensagem(leadId) {
+  function escolherTemplateMensagem() {
     const templates = campanhaAtual?.templates || [];
     if (!templates.length) return null;
-    return templates[hashLeadId(leadId) % templates.length];
+    const tpl = templates[campMsgRotationIndex % templates.length];
+    campMsgRotationIndex++;
+    return tpl;
   }
 
   function linkComRastreio(leadId) {
@@ -4283,7 +4284,7 @@
   }
 
   function montarMensagemLead(lead) {
-    const tpl = escolherTemplateMensagem(lead.id);
+    const tpl = escolherTemplateMensagem();
     if (!tpl) return '';
     return tpl
       .replaceAll('{nome}', primeiroNome(lead.nome))
@@ -4318,21 +4319,25 @@
     }
   }
 
-  // Monta a mensagem (com rodízio de template), abre o WhatsApp e marca
-  // "Contatado" automaticamente — só se o lead ainda estiver pendente.
-  // Na primeira mensagem, se a campanha tiver imagem cadastrada, copia
-  // ela pra área de transferência antes de abrir o WhatsApp.
+  // Monta a mensagem (com rodízio de template) e abre o WhatsApp — isso
+  // precisa acontecer de forma síncrona, logo no clique, senão o
+  // navegador trata o window.open como popup e bloqueia. Só depois disso
+  // (assíncrono) copia a imagem da 1ª mensagem e marca "Contatado".
   async function enviarMensagemLead(leadId) {
     const lead = campanhaLeads.find(l => l.id === leadId);
     if (!lead) return;
     const primeiraMensagem = !lead.classificacao;
-    if (primeiraMensagem && campanhaAtual?.imagemPrimeiraMsg) {
-      const copiou = await copiarImagemParaClipboard(campanhaAtual.imagemPrimeiraMsg);
-      if (copiou) showPipelineToast('Imagem copiada — cole (Ctrl+V) na conversa que vai abrir');
-    }
     const texto = montarMensagemLead(lead);
     const url = `https://wa.me/55${lead.telefone.replace(/\D/g,'')}` + (texto ? `?text=${encodeURIComponent(texto)}` : '');
-    window.open(url, '_blank');
+    const win = window.open(url, '_blank');
+    if (!win) {
+      alert('O navegador bloqueou a abertura do WhatsApp. Permita pop-ups pra este site e tente de novo.');
+      return;
+    }
+    if (primeiraMensagem && campanhaAtual?.imagemPrimeiraMsg) {
+      const copiou = await copiarImagemParaClipboard(campanhaAtual.imagemPrimeiraMsg);
+      if (copiou) showPipelineToast('Imagem copiada — cole (Ctrl+V) na conversa que abriu');
+    }
     if (!lead.classificacao) await classificarLead(leadId, 'contatado');
   }
 
