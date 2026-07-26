@@ -1313,6 +1313,16 @@
           <textarea id="campMsgTemplate2" rows="2" style="margin-bottom:6px" placeholder="Modelo 2 (opcional)"></textarea>
           <textarea id="campMsgTemplate3" rows="2" placeholder="Modelo 3 (opcional)"></textarea>
         </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Imagem da primeira mensagem <span style="font-size:11px;color:var(--text-muted)">(opcional — enviada só no primeiro contato de cada lead, pra lembrar do que ele se inscreveu)</span></label>
+          <div class="photo-drop-zone" id="campImagemZone">
+            <input type="file" id="campImagemInput" accept="image/*">
+            <div class="photo-drop-placeholder" id="campImagemPlaceholder">
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><rect x="1" y="4" width="20" height="15" rx="2" stroke="currentColor" stroke-width="1.4"/><circle cx="7.5" cy="9.5" r="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M1 15l5-4 4 3 3-2.5 8 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>Clique ou arraste a imagem aqui</span>
+            </div>
+          </div>
+        </div>
         <div id="campEditCSVWrap" class="form-group" style="grid-column:1/-1;display:none">
           <label>Substituir lista de leads <span style="font-size:11px;color:var(--text-muted)">(opcional — substitui todos os leads atuais)</span></label>
           <div class="photo-drop-zone" id="campEditCSVZone">
@@ -3924,6 +3934,7 @@
   let editandoAnotacaoIdx  = null;
 
   let campanhaCsvLeads = [];
+  let campImagemB64 = null;  // imagem da primeira mensagem (base64), campanha em criação/edição
 
   const campClassifLabel = {
     contatado:       'Contatado',
@@ -4041,7 +4052,7 @@
 
     // Buscar dados da campanha (nome, prazo, vínculo, templates de mensagem)
     const { data: camp } = await supabaseClient.from('campanhas')
-      .select('nome, created_at, meta_atendimento, empreendimento_id, imovel_id, lp_url, msg_template_1, msg_template_2, msg_template_3')
+      .select('nome, created_at, meta_atendimento, empreendimento_id, imovel_id, lp_url, msg_template_1, msg_template_2, msg_template_3, imagem_primeira_msg')
       .eq('id', id).single();
     document.getElementById('campanhaNomeHeader').textContent = camp?.nome || '';
     const inicio = camp?.created_at ? fmtDateBR(camp.created_at.slice(0,10)) : '—';
@@ -4061,6 +4072,7 @@
       vinculoNome,
       lpUrl: camp?.lp_url || null,
       templates: [camp?.msg_template_1, camp?.msg_template_2, camp?.msg_template_3].filter(t => t && t.trim()),
+      imagemPrimeiraMsg: camp?.imagem_primeira_msg || null,
     };
 
     campanhaLpVisitas = new Map();
@@ -4279,11 +4291,45 @@
       .replaceAll('{link}', linkComRastreio(lead.id));
   }
 
+  // wa.me só aceita texto — a imagem da 1ª mensagem vai pela área de
+  // transferência, o corretor cola (Ctrl+V) na conversa que abre.
+  function imagemParaBlobPNG(dataUri) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width; canvas.height = img.height;
+        canvas.getContext('2d').drawImage(img, 0, 0);
+        canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Falha ao converter imagem')), 'image/png');
+      };
+      img.onerror = reject;
+      img.src = dataUri;
+    });
+  }
+
+  async function copiarImagemParaClipboard(dataUri) {
+    try {
+      const blob = await imagemParaBlobPNG(dataUri);
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      return true;
+    } catch (e) {
+      console.error('Falha ao copiar imagem pra área de transferência:', e);
+      return false;
+    }
+  }
+
   // Monta a mensagem (com rodízio de template), abre o WhatsApp e marca
   // "Contatado" automaticamente — só se o lead ainda estiver pendente.
+  // Na primeira mensagem, se a campanha tiver imagem cadastrada, copia
+  // ela pra área de transferência antes de abrir o WhatsApp.
   async function enviarMensagemLead(leadId) {
     const lead = campanhaLeads.find(l => l.id === leadId);
     if (!lead) return;
+    const primeiraMensagem = !lead.classificacao;
+    if (primeiraMensagem && campanhaAtual?.imagemPrimeiraMsg) {
+      const copiou = await copiarImagemParaClipboard(campanhaAtual.imagemPrimeiraMsg);
+      if (copiou) showPipelineToast('Imagem copiada — cole (Ctrl+V) na conversa que vai abrir');
+    }
     const texto = montarMensagemLead(lead);
     const url = `https://wa.me/55${lead.telefone.replace(/\D/g,'')}` + (texto ? `?text=${encodeURIComponent(texto)}` : '');
     window.open(url, '_blank');
@@ -4709,9 +4755,51 @@
     if (selectId) sel.value = selectId;
   }
 
+  function mostrarPreviewCampImagem(b64) {
+    const zone = document.getElementById('campImagemZone');
+    const placeholder = document.getElementById('campImagemPlaceholder');
+    zone.querySelectorAll('.photo-preview, .photo-clear').forEach(el => el.remove());
+    if (b64) {
+      placeholder.style.display = 'none';
+      const img = document.createElement('img');
+      img.className = 'photo-preview';
+      img.src = b64;
+      zone.appendChild(img);
+      const btn = document.createElement('button');
+      btn.className = 'photo-clear';
+      btn.type = 'button';
+      btn.textContent = '×';
+      btn.onclick = (e) => { e.stopPropagation(); campImagemB64 = null; mostrarPreviewCampImagem(null); };
+      zone.appendChild(btn);
+    } else {
+      placeholder.style.display = '';
+    }
+  }
+
+  function handleCampImagemFile(file) {
+    if (!file) return;
+    resizeImage(file, 1000, 0.8).then(b64 => {
+      campImagemB64 = b64;
+      mostrarPreviewCampImagem(b64);
+    });
+  }
+
+  document.getElementById('campImagemInput').addEventListener('change', function() {
+    handleCampImagemFile(this.files[0]);
+  });
+  const campImagemZone = document.getElementById('campImagemZone');
+  campImagemZone.addEventListener('dragover', e => { e.preventDefault(); campImagemZone.style.borderColor = 'var(--gold)'; });
+  campImagemZone.addEventListener('dragleave', () => { campImagemZone.style.borderColor = ''; });
+  campImagemZone.addEventListener('drop', e => {
+    e.preventDefault(); campImagemZone.style.borderColor = '';
+    handleCampImagemFile(e.dataTransfer.files[0]);
+  });
+
   async function openCampanhaModal() {
     editingCampanhaId = null;
     campanhaCsvLeads = [];
+    campImagemB64 = null;
+    mostrarPreviewCampImagem(null);
     document.getElementById('campModalTitle').textContent = 'Nova campanha';
     document.getElementById('campNome').value = '';
     document.getElementById('campMetaAtendimento').value = '';
@@ -4786,6 +4874,8 @@
     document.getElementById('campMsgTemplate1').value = c?.msg_template_1 || '';
     document.getElementById('campMsgTemplate2').value = c?.msg_template_2 || '';
     document.getElementById('campMsgTemplate3').value = c?.msg_template_3 || '';
+    campImagemB64 = c?.imagem_primeira_msg || null;
+    mostrarPreviewCampImagem(campImagemB64);
 
     // Mostrar quantos corretores estão na campanha (para round-robin ao trocar leads)
     const { data: corrs } = await supabaseClient.from('campanha_corretores')
@@ -4867,6 +4957,7 @@
         .update({
           nome, empreendimento_id: empId, imovel_id: imovelId, status, meta_atendimento: metaAtendimento,
           lp_url: lpUrl, msg_template_1: msgTemplate1, msg_template_2: msgTemplate2, msg_template_3: msgTemplate3,
+          imagem_primeira_msg: campImagemB64,
         })
         .eq('id', editingCampanhaId);
       if (error) { alert('Erro ao atualizar campanha: ' + error.message); return; }
@@ -4884,6 +4975,7 @@
     const { data: camp, error } = await supabaseClient.from('campanhas').insert({
       nome, empreendimento_id: empId, imovel_id: imovelId, created_by: currentUser.id, meta_atendimento: metaAtendimento,
       lp_url: lpUrl, msg_template_1: msgTemplate1, msg_template_2: msgTemplate2, msg_template_3: msgTemplate3,
+      imagem_primeira_msg: campImagemB64,
     }).select('id').single();
     if (error) { alert('Erro ao criar campanha: ' + error.message); return; }
 
