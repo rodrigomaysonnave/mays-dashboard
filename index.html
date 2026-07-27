@@ -6276,7 +6276,8 @@
       imovelWrap.style.display = '';
       clienteSelect.innerHTML = `<option value="${fixedClienteId}">${escHtml(clienteDisplayName(clientes.find(c=>c.id===fixedClienteId)))}</option>`;
       clienteSelect.value = fixedClienteId;
-      imovelSelect.innerHTML = imoveis.map(i => `<option value="${i.id}">${escHtml(i.endereco)}</option>`).join('');
+      imovelSelect.innerHTML = '<option value="">Nenhum imóvel vinculado</option>' +
+        imoveis.map(i => `<option value="${i.id}">${escHtml(i.endereco)}</option>`).join('');
     } else if (fixedImovelId && !existing) {
       imovelWrap.style.display = 'none';
       clienteWrap.style.display = '';
@@ -6287,7 +6288,9 @@
       clienteWrap.style.display = '';
       imovelWrap.style.display = '';
       clienteSelect.innerHTML = buildClienteOptions(clientes, existing?.clienteId || null);
-      imovelSelect.innerHTML  = imoveis.map(i => `<option value="${i.id}"${existing&&i.id===existing.imovelId?' selected':''}>${escHtml(i.endereco)}</option>`).join('');
+      imovelSelect.innerHTML  = '<option value="">Nenhum imóvel vinculado</option>' +
+        imoveis.map(i => `<option value="${i.id}"${existing&&i.id===existing.imovelId?' selected':''}>${escHtml(i.endereco)}</option>`).join('');
+      if (!existing?.imovelId) imovelSelect.value = '';
     }
 
     document.getElementById('ofEstagio').value = existing?.estagio || 'ofertado';
@@ -6325,8 +6328,7 @@
   // Salva a oferta (cria cliente novo se preciso). Retorna { ofertaId, clienteId, imovelId } ou null.
   async function persistOferta() {
     let clienteId = document.getElementById('ofClienteSelect').value;
-    const imovelId  = document.getElementById('ofImovelSelect').value;
-    if (!imovelId) return null;
+    const imovelId  = document.getElementById('ofImovelSelect').value || null;
 
     if (clienteId === '__new__') {
       const nome = document.getElementById('ofNewClienteNome').value.trim();
