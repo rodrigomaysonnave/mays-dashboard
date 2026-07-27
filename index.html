@@ -6253,7 +6253,17 @@
   }
 
   async function openOfertaModal({ clienteId, imovelId, ofertaId } = {}) {
-    const existing = ofertaId ? (await loadOfertas()).find(o => o.id === ofertaId) : null;
+    let existing = ofertaId ? (await loadOfertas()).find(o => o.id === ofertaId) : null;
+    if (ofertaId && !existing) {
+      // Card pode estar desatualizado (oferta removida/alterada em outra sessão) — força recarregar antes de desistir.
+      invalidateDbCache('ofertas');
+      existing = (await loadOfertas()).find(o => o.id === ofertaId);
+      if (!existing) {
+        alert('Essa oferta não foi encontrada — provavelmente foi removida ou alterada em outra sessão. A lista vai atualizar.');
+        await renderPipeline();
+        return;
+      }
+    }
     editingOfertaId = existing ? existing.id : null;
 
     const fixedClienteId = existing ? existing.clienteId : clienteId;
