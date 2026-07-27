@@ -1314,7 +1314,7 @@
           <textarea id="campMsgTemplate3" rows="2" placeholder="Modelo 3 (opcional)"></textarea>
         </div>
         <div class="form-group" style="grid-column:1/-1">
-          <label>Texto do botão "Enviar LP" <span style="font-size:11px;color:var(--text-muted)">(opcional — enviado junto com o link pelo botão dedicado no detalhe do lead. Use <code>{nome}</code>, <code>{empreendimento}</code> e <code>{link}</code>)</span></label>
+          <label>Texto do botão "Enviar LP" <span style="font-size:11px;color:var(--text-muted)">(opcional — o link sempre vai junto, mesmo sem usar <code>{link}</code> no texto. Placeholders disponíveis: <code>{nome}</code>, <code>{empreendimento}</code>, <code>{link}</code>)</span></label>
           <textarea id="campTextoLinkLp" rows="2" placeholder="Nesse site tem informações e imagens do empreendimento&#10;{link}"></textarea>
         </div>
         <div class="form-group" style="grid-column:1/-1">
@@ -4324,12 +4324,17 @@
 
   const TEXTO_LINK_LP_PADRAO = 'Nesse site tem informações e imagens do empreendimento\n{link}';
 
+  // Garante que o link sempre vai junto, mesmo que o texto customizado
+  // não use {link} — o corretor não precisa lembrar do placeholder.
   function montarTextoLinkLP(lead) {
     const tpl = campanhaAtual?.textoLinkLp || TEXTO_LINK_LP_PADRAO;
-    return tpl
+    const link = linkComRastreio(lead.id);
+    const texto = tpl
       .replaceAll('{nome}', primeiroNome(lead.nome))
-      .replaceAll('{empreendimento}', campanhaAtual?.vinculoNome || '')
-      .replaceAll('{link}', linkComRastreio(lead.id));
+      .replaceAll('{empreendimento}', campanhaAtual?.vinculoNome || '');
+    return texto.includes('{link}')
+      ? texto.replaceAll('{link}', link)
+      : (texto.trim() ? `${texto}\n${link}` : link);
   }
 
   // Botão dedicado — manda só o link da LP (rastreável) com o texto de
