@@ -4485,7 +4485,7 @@
         ${lpVisitaHtml}
         <div class="lead-contact-btns">
           <a href="${telLink}" class="btn btn-ghost btn-sm">📞 Ligar</a>
-          ${!lead.classificacao && campanhaAtual?.imagemPrimeiraMsg ? `<button class="btn btn-ghost btn-sm" onclick="copiarImagemPrimeiraMensagem()" title="Copia a imagem — cole (Ctrl+V) depois de abrir o WhatsApp">🖼️ Copiar imagem</button>` : ''}
+          ${campanhaAtual?.imagemPrimeiraMsg ? `<button class="btn btn-ghost btn-sm" onclick="copiarImagemPrimeiraMensagem()" title="Copia a imagem — cole (Ctrl+V) depois de abrir o WhatsApp">🖼️ Copiar imagem</button>` : ''}
           <button class="btn btn-ghost btn-sm" onclick="enviarMensagemLead('${leadId}')">💬 WhatsApp</button>
           ${campanhaAtual?.lpUrl ? `<button class="btn btn-ghost btn-sm" onclick="enviarLinkLP('${leadId}')" title="Manda só o link da LP com o texto configurado na campanha">🔗 Enviar LP</button>` : ''}
           ${lead.email ? `<a href="mailto:${escHtml(lead.email)}" target="_blank" class="btn btn-ghost btn-sm">✉️ E-mail</a>` : ''}
