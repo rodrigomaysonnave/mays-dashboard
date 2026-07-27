@@ -4217,6 +4217,8 @@
     lead.classificadoEm = agora;
     if (novaEtapa === 'interesse' || novaEtapa === 'outro_negocio') {
       await enviarLeadProPipeline(lead);
+    } else {
+      await sincronizarSaidaDoPipeline(lead);
     }
     crmLeadSelecionado = null;
     renderCRM();
@@ -4337,6 +4339,22 @@
       : (texto.trim() ? `${texto}\n${link}` : link);
   }
 
+  // No mobile, window.open(url,'_blank') pra um link que faz handoff pro
+  // app do WhatsApp costuma deixar uma aba em branco (o SO intercepta pra
+  // abrir o app e a aba nova nunca é navegada). Navegar na própria aba
+  // evita isso — e como o handoff pro app não descarrega a página, o
+  // código que roda depois (copiar imagem, marcar Contatado) continua ok.
+  // No desktop mantém nova aba, pra não perder a página do dashboard.
+  function abrirWhatsApp(url) {
+    if (window.innerWidth < 768) {
+      window.location.href = url;
+      return true;
+    }
+    const win = window.open(url, '_blank');
+    if (!win) alert('O navegador bloqueou a abertura do WhatsApp. Permita pop-ups pra este site e tente de novo.');
+    return !!win;
+  }
+
   // Botão dedicado — manda só o link da LP (rastreável) com o texto de
   // acompanhamento configurado na campanha. Não mexe na classificação
   // do lead, é uma ação independente do primeiro contato.
@@ -4345,8 +4363,7 @@
     if (!lead || !campanhaAtual?.lpUrl) return;
     const texto = montarTextoLinkLP(lead);
     const url = `https://wa.me/55${lead.telefone.replace(/\D/g,'')}?text=${encodeURIComponent(texto)}`;
-    const win = window.open(url, '_blank');
-    if (!win) alert('O navegador bloqueou a abertura do WhatsApp. Permita pop-ups pra este site e tente de novo.');
+    abrirWhatsApp(url);
   }
 
   // wa.me só aceita texto — a imagem da 1ª mensagem vai pela área de
@@ -4386,11 +4403,7 @@
     const primeiraMensagem = !lead.classificacao;
     const texto = montarMensagemLead(lead);
     const url = `https://wa.me/55${lead.telefone.replace(/\D/g,'')}` + (texto ? `?text=${encodeURIComponent(texto)}` : '');
-    const win = window.open(url, '_blank');
-    if (!win) {
-      alert('O navegador bloqueou a abertura do WhatsApp. Permita pop-ups pra este site e tente de novo.');
-      return;
-    }
+    if (!abrirWhatsApp(url)) return;
     if (primeiraMensagem && campanhaAtual?.imagemPrimeiraMsg) {
       const copiou = await copiarImagemParaClipboard(campanhaAtual.imagemPrimeiraMsg);
       if (copiou) showPipelineToast('Imagem copiada — cole (Ctrl+V) na conversa que abriu');
@@ -4550,6 +4563,8 @@
     lead.classificadoEm = novaClassif ? agora : null;
     if (novaClassif === 'interesse' || novaClassif === 'outro_negocio') {
       await enviarLeadProPipeline(lead);
+    } else {
+      await sincronizarSaidaDoPipeline(lead);
     }
     openLeadDetail(leadId);
     renderLeadList();
@@ -4605,6 +4620,20 @@
     const { error } = await supabaseClient.from('ofertas').insert(payload).select('id').single();
     if (error) { alert('Erro ao enviar pro Pipeline: ' + error.message); return; }
     showPipelineToast(`${lead.nome} enviado pro Pipeline`);
+  }
+
+  // Se o lead já tinha ido pro Pipeline (interesse/outro negócio) e depois
+  // foi reclassificado pra outra etapa, tira a oferta de "Em atendimento"
+  // — só se ela ainda estiver intocada (ninguém moveu ela no Pipeline).
+  // Se já foi trabalhada manualmente, não mexe pra não perder progresso real.
+  async function sincronizarSaidaDoPipeline(lead) {
+    if (!lead.clienteId) return;
+    const campNome = (document.getElementById('campanhaNomeHeader')?.textContent || '').trim() || 'Campanha';
+    const ofertas = await loadOfertas();
+    const oferta = ofertas.find(o => o.clienteId === lead.clienteId && (o.obs || '').startsWith(`Campanha: ${campNome}`));
+    if (!oferta || oferta.estagio !== 'ofertado') return;
+    await moveOfertaEstagio(oferta.id, 'recusado');
+    showPipelineToast(`${lead.nome} retirado de "Em atendimento" no Pipeline`);
   }
 
   function showPipelineToast(texto) {
