@@ -4217,7 +4217,7 @@
     lead.classificadoEm = agora;
     if (novaEtapa === 'interesse' || novaEtapa === 'outro_negocio') {
       await enviarLeadProPipeline(lead);
-    } else {
+    } else if (novaEtapa) {
       await sincronizarSaidaDoPipeline(lead);
     }
     crmLeadSelecionado = null;
@@ -4563,7 +4563,7 @@
     lead.classificadoEm = novaClassif ? agora : null;
     if (novaClassif === 'interesse' || novaClassif === 'outro_negocio') {
       await enviarLeadProPipeline(lead);
-    } else {
+    } else if (novaClassif) {
       await sincronizarSaidaDoPipeline(lead);
     }
     openLeadDetail(leadId);
