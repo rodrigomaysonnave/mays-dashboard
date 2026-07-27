@@ -4393,21 +4393,27 @@
     }
   }
 
-  // Monta a mensagem (com rodízio de template) e abre o WhatsApp — isso
-  // precisa acontecer de forma síncrona, logo no clique, senão o
-  // navegador trata o window.open como popup e bloqueia. Só depois disso
-  // (assíncrono) copia a imagem da 1ª mensagem e marca "Contatado".
+  // Botão separado — só copia a imagem da 1ª mensagem, sem abrir nada.
+  // Isolado do envio de propósito: abrir o WhatsApp e escrever na área de
+  // transferência competem pela mesma "permissão de clique" do navegador
+  // (principalmente no Safari/Mac), então cada ação precisa do seu próprio
+  // clique pra funcionar com garantia.
+  async function copiarImagemPrimeiraMensagem() {
+    if (!campanhaAtual?.imagemPrimeiraMsg) return;
+    const copiou = await copiarImagemParaClipboard(campanhaAtual.imagemPrimeiraMsg);
+    if (copiou) showPipelineToast('Imagem copiada — cole (Ctrl+V) na conversa do WhatsApp');
+    else alert('Não consegui copiar a imagem. Tente de novo, ou copie manualmente.');
+  }
+
+  // Monta a mensagem (com rodízio de template), abre o WhatsApp e marca
+  // "Contatado" — precisa acontecer de forma síncrona, logo no clique,
+  // senão o navegador trata o window.open como popup e bloqueia.
   async function enviarMensagemLead(leadId) {
     const lead = campanhaLeads.find(l => l.id === leadId);
     if (!lead) return;
-    const primeiraMensagem = !lead.classificacao;
     const texto = montarMensagemLead(lead);
     const url = `https://wa.me/55${lead.telefone.replace(/\D/g,'')}` + (texto ? `?text=${encodeURIComponent(texto)}` : '');
     if (!abrirWhatsApp(url)) return;
-    if (primeiraMensagem && campanhaAtual?.imagemPrimeiraMsg) {
-      const copiou = await copiarImagemParaClipboard(campanhaAtual.imagemPrimeiraMsg);
-      if (copiou) showPipelineToast('Imagem copiada — cole (Ctrl+V) na conversa que abriu');
-    }
     if (!lead.classificacao) await classificarLead(leadId, 'contatado');
   }
 
@@ -4479,6 +4485,7 @@
         ${lpVisitaHtml}
         <div class="lead-contact-btns">
           <a href="${telLink}" class="btn btn-ghost btn-sm">📞 Ligar</a>
+          ${!lead.classificacao && campanhaAtual?.imagemPrimeiraMsg ? `<button class="btn btn-ghost btn-sm" onclick="copiarImagemPrimeiraMensagem()" title="Copia a imagem — cole (Ctrl+V) depois de abrir o WhatsApp">🖼️ Copiar imagem</button>` : ''}
           <button class="btn btn-ghost btn-sm" onclick="enviarMensagemLead('${leadId}')">💬 WhatsApp</button>
           ${campanhaAtual?.lpUrl ? `<button class="btn btn-ghost btn-sm" onclick="enviarLinkLP('${leadId}')" title="Manda só o link da LP com o texto configurado na campanha">🔗 Enviar LP</button>` : ''}
           ${lead.email ? `<a href="mailto:${escHtml(lead.email)}" target="_blank" class="btn btn-ghost btn-sm">✉️ E-mail</a>` : ''}
