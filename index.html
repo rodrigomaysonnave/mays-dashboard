@@ -1314,6 +1314,10 @@
           <textarea id="campMsgTemplate3" rows="2" placeholder="Modelo 3 (opcional)"></textarea>
         </div>
         <div class="form-group" style="grid-column:1/-1">
+          <label>Texto do botão "Enviar LP" <span style="font-size:11px;color:var(--text-muted)">(opcional — enviado junto com o link pelo botão dedicado no detalhe do lead. Use <code>{nome}</code>, <code>{empreendimento}</code> e <code>{link}</code>)</span></label>
+          <textarea id="campTextoLinkLp" rows="2" placeholder="Nesse site tem informações e imagens do empreendimento&#10;{link}"></textarea>
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
           <label>Imagem da primeira mensagem <span style="font-size:11px;color:var(--text-muted)">(opcional — enviada só no primeiro contato de cada lead, pra lembrar do que ele se inscreveu)</span></label>
           <div class="photo-drop-zone" id="campImagemZone">
             <input type="file" id="campImagemInput" accept="image/*">
@@ -4073,7 +4077,7 @@
 
       // Buscar dados da campanha (nome, prazo, vínculo, templates de mensagem)
       const { data: camp, error: campErro } = await supabaseClient.from('campanhas')
-        .select('nome, created_at, meta_atendimento, empreendimento_id, imovel_id, lp_url, msg_template_1, msg_template_2, msg_template_3, imagem_primeira_msg')
+        .select('nome, created_at, meta_atendimento, empreendimento_id, imovel_id, lp_url, msg_template_1, msg_template_2, msg_template_3, texto_link_lp, imagem_primeira_msg')
         .eq('id', id).single();
       if (campErro) throw campErro;
       document.getElementById('campanhaNomeHeader').textContent = camp?.nome || '';
@@ -4097,6 +4101,7 @@
         vinculoNome,
         lpUrl: camp?.lp_url || null,
         templates: [camp?.msg_template_1, camp?.msg_template_2, camp?.msg_template_3].filter(t => t && t.trim()),
+        textoLinkLp: camp?.texto_link_lp || null,
         imagemPrimeiraMsg: camp?.imagem_primeira_msg || null,
       };
 
@@ -4317,6 +4322,28 @@
       .replaceAll('{link}', linkComRastreio(lead.id));
   }
 
+  const TEXTO_LINK_LP_PADRAO = 'Nesse site tem informações e imagens do empreendimento\n{link}';
+
+  function montarTextoLinkLP(lead) {
+    const tpl = campanhaAtual?.textoLinkLp || TEXTO_LINK_LP_PADRAO;
+    return tpl
+      .replaceAll('{nome}', primeiroNome(lead.nome))
+      .replaceAll('{empreendimento}', campanhaAtual?.vinculoNome || '')
+      .replaceAll('{link}', linkComRastreio(lead.id));
+  }
+
+  // Botão dedicado — manda só o link da LP (rastreável) com o texto de
+  // acompanhamento configurado na campanha. Não mexe na classificação
+  // do lead, é uma ação independente do primeiro contato.
+  function enviarLinkLP(leadId) {
+    const lead = campanhaLeads.find(l => l.id === leadId);
+    if (!lead || !campanhaAtual?.lpUrl) return;
+    const texto = montarTextoLinkLP(lead);
+    const url = `https://wa.me/55${lead.telefone.replace(/\D/g,'')}?text=${encodeURIComponent(texto)}`;
+    const win = window.open(url, '_blank');
+    if (!win) alert('O navegador bloqueou a abertura do WhatsApp. Permita pop-ups pra este site e tente de novo.');
+  }
+
   // wa.me só aceita texto — a imagem da 1ª mensagem vai pela área de
   // transferência, o corretor cola (Ctrl+V) na conversa que abre.
   function imagemParaBlobPNG(dataUri) {
@@ -4435,6 +4462,7 @@
         <div class="lead-contact-btns">
           <a href="${telLink}" class="btn btn-ghost btn-sm">📞 Ligar</a>
           <button class="btn btn-ghost btn-sm" onclick="enviarMensagemLead('${leadId}')">💬 WhatsApp</button>
+          ${campanhaAtual?.lpUrl ? `<button class="btn btn-ghost btn-sm" onclick="enviarLinkLP('${leadId}')" title="Manda só o link da LP com o texto configurado na campanha">🔗 Enviar LP</button>` : ''}
           ${lead.email ? `<a href="mailto:${escHtml(lead.email)}" target="_blank" class="btn btn-ghost btn-sm">✉️ E-mail</a>` : ''}
         </div>
       </div>
@@ -4837,6 +4865,7 @@
     document.getElementById('campMsgTemplate1').value = '';
     document.getElementById('campMsgTemplate2').value = '';
     document.getElementById('campMsgTemplate3').value = '';
+    document.getElementById('campTextoLinkLp').value = '';
     document.getElementById('campCSVPreview').textContent = 'Clique ou arraste o arquivo CSV aqui';
     document.getElementById('campCSVInput').value = '';
     document.getElementById('campStatusWrap').style.display = 'none';
@@ -4905,6 +4934,7 @@
     document.getElementById('campMsgTemplate1').value = c.msg_template_1 || '';
     document.getElementById('campMsgTemplate2').value = c.msg_template_2 || '';
     document.getElementById('campMsgTemplate3').value = c.msg_template_3 || '';
+    document.getElementById('campTextoLinkLp').value = c.texto_link_lp || '';
     campImagemB64 = c.imagem_primeira_msg || null;
     mostrarPreviewCampImagem(campImagemB64);
     document.querySelectorAll('.corretor-check').forEach(chk => {
@@ -4931,6 +4961,7 @@
     document.getElementById('campMsgTemplate1').value = c?.msg_template_1 || '';
     document.getElementById('campMsgTemplate2').value = c?.msg_template_2 || '';
     document.getElementById('campMsgTemplate3').value = c?.msg_template_3 || '';
+    document.getElementById('campTextoLinkLp').value = c?.texto_link_lp || '';
     campImagemB64 = c?.imagem_primeira_msg || null;
     mostrarPreviewCampImagem(campImagemB64);
 
@@ -4971,6 +5002,7 @@
     const msgTemplate1 = document.getElementById('campMsgTemplate1').value.trim() || null;
     const msgTemplate2 = document.getElementById('campMsgTemplate2').value.trim() || null;
     const msgTemplate3 = document.getElementById('campMsgTemplate3').value.trim() || null;
+    const textoLinkLp = document.getElementById('campTextoLinkLp').value.trim() || null;
 
     if (!nome) { document.getElementById('campNome').focus(); return; }
 
@@ -5014,7 +5046,7 @@
         .update({
           nome, empreendimento_id: empId, imovel_id: imovelId, status, meta_atendimento: metaAtendimento,
           lp_url: lpUrl, msg_template_1: msgTemplate1, msg_template_2: msgTemplate2, msg_template_3: msgTemplate3,
-          imagem_primeira_msg: campImagemB64,
+          texto_link_lp: textoLinkLp, imagem_primeira_msg: campImagemB64,
         })
         .eq('id', editingCampanhaId);
       if (error) { alert('Erro ao atualizar campanha: ' + error.message); return; }
@@ -5032,7 +5064,7 @@
     const { data: camp, error } = await supabaseClient.from('campanhas').insert({
       nome, empreendimento_id: empId, imovel_id: imovelId, created_by: currentUser.id, meta_atendimento: metaAtendimento,
       lp_url: lpUrl, msg_template_1: msgTemplate1, msg_template_2: msgTemplate2, msg_template_3: msgTemplate3,
-      imagem_primeira_msg: campImagemB64,
+      texto_link_lp: textoLinkLp, imagem_primeira_msg: campImagemB64,
     }).select('id').single();
     if (error) { alert('Erro ao criar campanha: ' + error.message); return; }
 
