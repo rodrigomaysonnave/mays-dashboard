@@ -1699,7 +1699,7 @@
         </div>
         <div class="form-group">
           <label for="fArea">Área total (m²)</label>
-          <input type="number" id="fArea" placeholder="Calculado automaticamente" min="0" readonly style="opacity:0.6;cursor:default">
+          <input type="number" id="fArea" placeholder="Preencha direto ou calcule pela testada/profundidade" min="0" step="0.01">
         </div>
         <div class="form-group">
           <label for="fPrioridade">Prioridade</label>
@@ -2481,9 +2481,11 @@
     if (!areaEl) return;
     if (t > 0 && p > 0) {
       areaEl.value = Math.round(t * p * 100) / 100;
-    } else {
-      areaEl.value = item?.area || '';
+    } else if (item) {
+      // carregando um imóvel existente: usa a área salva (digitada manualmente ou calculada antes)
+      areaEl.value = item.area || '';
     }
+    // sem testada/profundidade e sem item: mantém o que o usuário digitou manualmente
   }
 
   // ── Photo handling ────────────────────────────────────────────
@@ -2934,9 +2936,7 @@
 
     const testada      = document.getElementById('fTestada').value.trim();
     const profundidade = document.getElementById('fProfundidade').value.trim();
-    const area         = (parseFloat(testada) && parseFloat(profundidade))
-                           ? String(Math.round(parseFloat(testada) * parseFloat(profundidade) * 100) / 100)
-                           : '';
+    const area         = document.getElementById('fArea').value.trim();
 
     const item = {
       endereco,
