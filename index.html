@@ -1003,7 +1003,7 @@
     <h1>Maysonnave Imóveis</h1>
     <p>Dashboard operacional</p>
   </div>
-  <div id="appVersionBadge" title="Versão do Dashboard" style="font-size:11px;color:var(--text-muted);opacity:0.7;border:1px solid var(--border);border-radius:20px;padding:2px 9px;margin-left:10px;user-select:none;">v2.7</div>
+  <div id="appVersionBadge" title="Versão do Dashboard" style="font-size:11px;color:var(--text-muted);opacity:0.7;border:1px solid var(--border);border-radius:20px;padding:2px 9px;margin-left:10px;user-select:none;">v3.0</div>
   <div style="flex:1"></div>
   <div id="headerUserInfo" style="font-size:12px;color:var(--text-muted);margin-right:12px"></div>
   <button class="btn btn-ghost" id="btnLogout">Sair</button>
@@ -3959,6 +3959,9 @@
     interesse:       'Tem interesse',
     outro_negocio:   'Outro negócio',
   };
+  // Etapas em que o agente se recusa a redigir mensagem (número inválido,
+  // fora do perfil, ou já sinalizou "sem interesse") — o botão nem aparece.
+  const campEtapasSemAgente = ['numero_invalido', 'sem_perfil', 'sem_interesse'];
 
   async function loadCampanhas() {
     const { data, error } = await supabaseClient.from('campanhas').select('*').order('created_at', { ascending: false });
@@ -4459,7 +4462,7 @@
       body: {
         briefing: campanhaAtual.contextoAgente,
         leadNome: lead.nome,
-        etapa: lead.classificacao ? (campClassifLabel[lead.classificacao] || lead.classificacao) : null,
+        etapa: lead.classificacao || null,
         vinculoNome: campanhaAtual.vinculoNome || null,
         historico: historico.map(a => ({
           em: a.em ? new Date(a.em).toLocaleDateString('pt-BR') : '',
@@ -4470,6 +4473,11 @@
       },
     });
     if (btn) btn.disabled = false;
+
+    if (data?.bloqueado) {
+      wrap.innerHTML = `<div style="margin:14px 0;padding:12px 14px;border:1px dashed var(--border);border-radius:10px;color:var(--text-muted);font-size:13px">🚫 ${escHtml(data.motivo)}</div>`;
+      return;
+    }
 
     const msgErro = error?.message || data?.error;
     if (msgErro || !data?.texto) {
@@ -4571,7 +4579,7 @@
           ${campanhaAtual?.imagemPrimeiraMsg ? `<button class="btn btn-ghost btn-sm" onclick="copiarImagemPrimeiraMensagem()" title="Copia a imagem — cole (Ctrl+V) depois de abrir o WhatsApp">🖼️ Copiar imagem</button>` : ''}
           <button class="btn btn-ghost btn-sm" onclick="enviarMensagemLead('${leadId}')">💬 WhatsApp</button>
           ${campanhaAtual?.lpUrl ? `<button class="btn btn-ghost btn-sm" onclick="enviarLinkLP('${leadId}')" title="Manda só o link da LP com o texto configurado na campanha">🔗 Enviar LP</button>` : ''}
-          ${campanhaAtual?.contextoAgente ? `<button class="btn btn-ghost btn-sm" id="btnSugerirMsg" onclick="sugerirMensagem('${leadId}')" title="O agente escreve uma mensagem personalizada com base no briefing da campanha e no histórico desse lead — você revisa antes de enviar">✨ Sugerir mensagem</button>` : ''}
+          ${campanhaAtual?.contextoAgente && !campEtapasSemAgente.includes(lead.classificacao) ? `<button class="btn btn-ghost btn-sm" id="btnSugerirMsg" onclick="sugerirMensagem('${leadId}')" title="O agente escreve uma mensagem personalizada com base no briefing, na etapa e no histórico desse lead — você revisa antes de enviar">✨ Sugerir mensagem</button>` : ''}
           ${lead.email ? `<a href="mailto:${escHtml(lead.email)}" target="_blank" class="btn btn-ghost btn-sm">✉️ E-mail</a>` : ''}
         </div>
       </div>
