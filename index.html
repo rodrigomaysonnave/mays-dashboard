@@ -1323,6 +1323,10 @@
           <textarea id="campTextoLinkLp" rows="2" placeholder="Nesse site tem informações e imagens do empreendimento&#10;{link}"></textarea>
         </div>
         <div class="form-group" style="grid-column:1/-1">
+          <label>✨ Briefing do agente <span style="font-size:11px;color:var(--text-muted)">(opcional — habilita o botão "Sugerir mensagem" no detalhe do lead. Descreva o produto, diferenciais, objeções comuns e o que o agente NÃO pode afirmar — valores, prazos, condições)</span></label>
+          <textarea id="campContextoAgente" rows="5" placeholder="Ex: Empreendimento de 2 e 3 dormitórios, entrega dez/2027, construtora X. Diferenciais: ... Objeção comum: acham longe do centro — responder que fica a 8 min de ... NÃO falar de valores nem condições de pagamento."></textarea>
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
           <label>Imagem da primeira mensagem <span style="font-size:11px;color:var(--text-muted)">(opcional — enviada só no primeiro contato de cada lead, pra lembrar do que ele se inscreveu)</span></label>
           <div class="photo-drop-zone" id="campImagemZone">
             <input type="file" id="campImagemInput" accept="image/*">
@@ -4083,7 +4087,7 @@
 
       // Buscar dados da campanha (nome, prazo, vínculo, templates de mensagem)
       const { data: camp, error: campErro } = await supabaseClient.from('campanhas')
-        .select('nome, created_at, meta_atendimento, empreendimento_id, imovel_id, lp_url, msg_template_1, msg_template_2, msg_template_3, texto_link_lp, imagem_primeira_msg')
+        .select('nome, created_at, meta_atendimento, empreendimento_id, imovel_id, lp_url, msg_template_1, msg_template_2, msg_template_3, texto_link_lp, imagem_primeira_msg, contexto_agente')
         .eq('id', id).single();
       if (campErro) throw campErro;
       document.getElementById('campanhaNomeHeader').textContent = camp?.nome || '';
@@ -4109,6 +4113,7 @@
         templates: [camp?.msg_template_1, camp?.msg_template_2, camp?.msg_template_3].filter(t => t && t.trim()),
         textoLinkLp: camp?.texto_link_lp || null,
         imagemPrimeiraMsg: camp?.imagem_primeira_msg || null,
+        contextoAgente: camp?.contexto_agente || null,
       };
 
       campanhaLpVisitas = campanhaLeads.length
@@ -4434,6 +4439,67 @@
     if (!lead.classificacao) await classificarLead(leadId, 'contatado');
   }
 
+  // ── ✨ Sugestão de mensagem (Passo 1 do agente virtual) ─────────
+  // O agente redige, o corretor revisa e envia — a chamada ao Gemini
+  // acontece na Edge Function "sugerir-mensagem" (a chave da API mora
+  // lá, nunca aqui, porque este arquivo é público no GitHub Pages).
+  async function sugerirMensagem(leadId) {
+    const lead = campanhaLeads.find(l => l.id === leadId);
+    if (!lead || !campanhaAtual?.contextoAgente) return;
+
+    const wrap = document.getElementById('sugestaoMsgWrap');
+    const btn  = document.getElementById('btnSugerirMsg');
+    if (btn) btn.disabled = true;
+    wrap.innerHTML = `<div style="margin:14px 0;padding:12px 14px;border:1px dashed var(--border);border-radius:10px;color:var(--text-muted);font-size:13px">✨ O agente está escrevendo…</div>`;
+
+    let historico = [];
+    try { const p = JSON.parse(lead.anotacoes || '[]'); if (Array.isArray(p)) historico = p; } catch(e) {}
+
+    const { data, error } = await supabaseClient.functions.invoke('sugerir-mensagem', {
+      body: {
+        briefing: campanhaAtual.contextoAgente,
+        leadNome: lead.nome,
+        etapa: lead.classificacao ? (campClassifLabel[lead.classificacao] || lead.classificacao) : null,
+        vinculoNome: campanhaAtual.vinculoNome || null,
+        historico: historico.map(a => ({
+          em: a.em ? new Date(a.em).toLocaleDateString('pt-BR') : '',
+          etapa: a.etapa ? (campClassifLabel[a.etapa] || a.etapa) : '',
+          texto: a.texto || '',
+        })),
+        exemplos: campanhaAtual.templates || [],
+      },
+    });
+    if (btn) btn.disabled = false;
+
+    const msgErro = error?.message || data?.error;
+    if (msgErro || !data?.texto) {
+      wrap.innerHTML = `<div style="margin:14px 0;padding:12px 14px;border:1px solid #a33;border-radius:10px;color:#c66;font-size:13px">Não consegui gerar a sugestão: ${escHtml(msgErro || 'resposta vazia')}. Tente de novo.</div>`;
+      return;
+    }
+
+    wrap.innerHTML = `
+      <div style="margin:14px 0;padding:12px 14px;border:1px solid var(--gold);border-radius:10px">
+        <div class="lead-obs-label" style="margin-bottom:8px">✨ Sugestão do agente — revise antes de enviar</div>
+        <textarea class="nova-anotacao-input" id="sugestaoMsgTexto" style="min-height:90px">${escHtml(data.texto)}</textarea>
+        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+          <button class="nova-anotacao-ok" style="padding:6px 14px;font-size:12px" onclick="enviarSugestao('${leadId}')">💬 Enviar no WhatsApp</button>
+          <button class="btn btn-ghost btn-sm" onclick="sugerirMensagem('${leadId}')">🔄 Gerar outra</button>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('sugestaoMsgWrap').innerHTML=''">✕</button>
+        </div>
+      </div>`;
+  }
+
+  // Envia o texto da sugestão (com as edições do corretor) pelo mesmo
+  // caminho do botão 💬: abre o wa.me e marca Contatado se era pendente.
+  async function enviarSugestao(leadId) {
+    const lead = campanhaLeads.find(l => l.id === leadId);
+    const texto = document.getElementById('sugestaoMsgTexto')?.value.trim();
+    if (!lead || !texto) return;
+    const url = `https://wa.me/55${lead.telefone.replace(/\D/g,'')}?text=${encodeURIComponent(texto)}`;
+    if (!abrirWhatsApp(url)) return;
+    if (!lead.classificacao) await classificarLead(leadId, 'contatado');
+  }
+
   function openLeadDetail(leadId) {
     leadAtivoId = leadId;
     const lead = campanhaLeads.find(l => l.id === leadId);
@@ -4505,9 +4571,11 @@
           ${campanhaAtual?.imagemPrimeiraMsg ? `<button class="btn btn-ghost btn-sm" onclick="copiarImagemPrimeiraMensagem()" title="Copia a imagem — cole (Ctrl+V) depois de abrir o WhatsApp">🖼️ Copiar imagem</button>` : ''}
           <button class="btn btn-ghost btn-sm" onclick="enviarMensagemLead('${leadId}')">💬 WhatsApp</button>
           ${campanhaAtual?.lpUrl ? `<button class="btn btn-ghost btn-sm" onclick="enviarLinkLP('${leadId}')" title="Manda só o link da LP com o texto configurado na campanha">🔗 Enviar LP</button>` : ''}
+          ${campanhaAtual?.contextoAgente ? `<button class="btn btn-ghost btn-sm" id="btnSugerirMsg" onclick="sugerirMensagem('${leadId}')" title="O agente escreve uma mensagem personalizada com base no briefing da campanha e no histórico desse lead — você revisa antes de enviar">✨ Sugerir mensagem</button>` : ''}
           ${lead.email ? `<a href="mailto:${escHtml(lead.email)}" target="_blank" class="btn btn-ghost btn-sm">✉️ E-mail</a>` : ''}
         </div>
       </div>
+      <div id="sugestaoMsgWrap"></div>
       <div class="classif-label">Etapa</div>
       <div class="classif-btns">${btns}</div>
       ${timeline}
@@ -4924,6 +4992,7 @@
     document.getElementById('campMsgTemplate2').value = '';
     document.getElementById('campMsgTemplate3').value = '';
     document.getElementById('campTextoLinkLp').value = '';
+    document.getElementById('campContextoAgente').value = '';
     document.getElementById('campCSVPreview').textContent = 'Clique ou arraste o arquivo CSV aqui';
     document.getElementById('campCSVInput').value = '';
     document.getElementById('campStatusWrap').style.display = 'none';
@@ -4993,6 +5062,7 @@
     document.getElementById('campMsgTemplate2').value = c.msg_template_2 || '';
     document.getElementById('campMsgTemplate3').value = c.msg_template_3 || '';
     document.getElementById('campTextoLinkLp').value = c.texto_link_lp || '';
+    document.getElementById('campContextoAgente').value = c.contexto_agente || '';
     campImagemB64 = c.imagem_primeira_msg || null;
     mostrarPreviewCampImagem(campImagemB64);
     document.querySelectorAll('.corretor-check').forEach(chk => {
@@ -5005,7 +5075,7 @@
     campanhaCsvLeads = [];
     document.getElementById('campModalTitle').textContent = 'Editar campanha';
     document.getElementById('campStatusWrap').style.display = '';
-    document.getElementById('campCorretoresWrap').style.display = 'none';
+    document.getElementById('campCorretoresWrap').style.display = '';
     document.getElementById('campCSVWrap').style.display = 'none';
     document.getElementById('campEditCSVWrap').style.display = '';
     document.getElementById('campEditCSVPreview').textContent = 'Clique ou arraste o novo arquivo aqui';
@@ -5020,15 +5090,25 @@
     document.getElementById('campMsgTemplate2').value = c?.msg_template_2 || '';
     document.getElementById('campMsgTemplate3').value = c?.msg_template_3 || '';
     document.getElementById('campTextoLinkLp').value = c?.texto_link_lp || '';
+    document.getElementById('campContextoAgente').value = c?.contexto_agente || '';
     campImagemB64 = c?.imagem_primeira_msg || null;
     mostrarPreviewCampImagem(campImagemB64);
 
-    // Mostrar quantos corretores estão na campanha (para round-robin ao trocar leads)
+    // Corretores atuais da campanha — marcados nos checkboxes, editáveis pelo admin.
+    // Trocar a seleção aqui transfere os leads do corretor removido pro(s) que entraram
+    // (round-robin), preservando classificação/estágio — só o dono do lead muda.
     const { data: corrs } = await supabaseClient.from('campanha_corretores')
-      .select('profiles(nome)').eq('campanha_id', id);
-    const nomes = (corrs || []).map(r => r.profiles?.nome).filter(Boolean);
+      .select('corretor_id').eq('campanha_id', id);
+    const corretorIdsAtuais = (corrs || []).map(r => r.corretor_id);
+    const profiles = await loadAllProfiles();
+    document.getElementById('campCorretoresCheckboxes').innerHTML = profiles.map(p =>
+      `<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+        <input type="checkbox" class="corretor-check" value="${p.id}" ${corretorIdsAtuais.includes(p.id) ? 'checked' : ''}>
+        ${escHtml(p.nome)}${p.role==='admin'?' (admin)':''}
+      </label>`
+    ).join('');
     document.getElementById('campEditCorretoresInfo').textContent =
-      nomes.length ? `Corretores: ${nomes.join(', ')}` : '';
+      'Alterar os corretores acima transfere os leads do corretor removido pro(s) que entraram, mantendo histórico e estágio.';
 
     const emps = await loadEmpreendimentos();
     const sel = document.getElementById('campEmpreendimento');
@@ -5061,6 +5141,7 @@
     const msgTemplate2 = document.getElementById('campMsgTemplate2').value.trim() || null;
     const msgTemplate3 = document.getElementById('campMsgTemplate3').value.trim() || null;
     const textoLinkLp = document.getElementById('campTextoLinkLp').value.trim() || null;
+    const contextoAgente = document.getElementById('campContextoAgente').value.trim() || null;
 
     if (!nome) { document.getElementById('campNome').focus(); return; }
 
@@ -5068,27 +5149,30 @@
     if (editingCampanhaId) {
       const status = document.getElementById('campStatus').value;
 
+      // Corretores marcados agora vs. os que já estavam na campanha — a diferença
+      // define quem entrou/saiu, pra atualizar a atribuição e migrar os leads do removido.
+      const novosCorretoresIds = [...document.querySelectorAll('.corretor-check:checked')].map(c => c.value);
+      if (!novosCorretoresIds.length) { alert('Selecione ao menos um corretor.'); return; }
+      const { data: corrsAtuais } = await supabaseClient
+        .from('campanha_corretores')
+        .select('corretor_id')
+        .eq('campanha_id', editingCampanhaId);
+      const corretoresAtuaisIds = (corrsAtuais || []).map(r => r.corretor_id);
+      const removidos = corretoresAtuaisIds.filter(cid => !novosCorretoresIds.includes(cid));
+      const adicionados = novosCorretoresIds.filter(cid => !corretoresAtuaisIds.includes(cid));
+
       // Se foi carregado um novo CSV, substituir todos os leads
       if (campanhaCsvLeads.length > 0) {
-        // Buscar corretores atribuídos à campanha
-        const { data: corrs } = await supabaseClient
-          .from('campanha_corretores')
-          .select('corretor_id')
-          .eq('campanha_id', editingCampanhaId);
-        const corretoresIds = (corrs || []).map(r => r.corretor_id);
-        if (!corretoresIds.length) {
-          alert('Nenhum corretor encontrado para essa campanha.'); return;
-        }
         // Apagar leads existentes
         const { error: delErr } = await supabaseClient
           .from('campanha_leads')
           .delete()
           .eq('campanha_id', editingCampanhaId);
         if (delErr) { alert('Erro ao apagar leads antigos: ' + delErr.message); return; }
-        // Inserir novos leads em round-robin
+        // Inserir novos leads em round-robin entre os corretores selecionados agora
         const leadsPayload = campanhaCsvLeads.map((l, i) => ({
           campanha_id: editingCampanhaId,
-          corretor_id: corretoresIds[i % corretoresIds.length],
+          corretor_id: novosCorretoresIds[i % novosCorretoresIds.length],
           nome: l.nome, telefone: l.telefone, email: l.email || null,
         }));
         const BATCH = 200;
@@ -5098,13 +5182,44 @@
             .insert(leadsPayload.slice(i, i + BATCH));
           if (insErr) { alert('Erro ao inserir leads: ' + insErr.message); return; }
         }
+      } else if (removidos.length) {
+        // Sem CSV novo: transfere os leads dos corretores removidos pro(s) que
+        // ficaram, em round-robin, preservando classificação/estágio/anotações.
+        const { data: leadsParaTransferir } = await supabaseClient
+          .from('campanha_leads')
+          .select('id')
+          .eq('campanha_id', editingCampanhaId)
+          .in('corretor_id', removidos);
+        const grupos = {};
+        (leadsParaTransferir || []).forEach((l, i) => {
+          const destino = novosCorretoresIds[i % novosCorretoresIds.length];
+          (grupos[destino] = grupos[destino] || []).push(l.id);
+        });
+        for (const [destino, ids] of Object.entries(grupos)) {
+          const { error: transErr } = await supabaseClient
+            .from('campanha_leads')
+            .update({ corretor_id: destino })
+            .in('id', ids);
+          if (transErr) { alert('Erro ao transferir leads: ' + transErr.message); return; }
+        }
+      }
+
+      // Atualizar atribuição de corretores da campanha
+      if (removidos.length) {
+        await supabaseClient.from('campanha_corretores').delete()
+          .eq('campanha_id', editingCampanhaId).in('corretor_id', removidos);
+      }
+      if (adicionados.length) {
+        await supabaseClient.from('campanha_corretores').insert(
+          adicionados.map(cid => ({ campanha_id: editingCampanhaId, corretor_id: cid }))
+        );
       }
 
       const { error } = await supabaseClient.from('campanhas')
         .update({
           nome, empreendimento_id: empId, imovel_id: imovelId, status, meta_atendimento: metaAtendimento,
           lp_url: lpUrl, msg_template_1: msgTemplate1, msg_template_2: msgTemplate2, msg_template_3: msgTemplate3,
-          texto_link_lp: textoLinkLp, imagem_primeira_msg: campImagemB64,
+          texto_link_lp: textoLinkLp, imagem_primeira_msg: campImagemB64, contexto_agente: contextoAgente,
         })
         .eq('id', editingCampanhaId);
       if (error) { alert('Erro ao atualizar campanha: ' + error.message); return; }
@@ -5122,7 +5237,7 @@
     const { data: camp, error } = await supabaseClient.from('campanhas').insert({
       nome, empreendimento_id: empId, imovel_id: imovelId, created_by: currentUser.id, meta_atendimento: metaAtendimento,
       lp_url: lpUrl, msg_template_1: msgTemplate1, msg_template_2: msgTemplate2, msg_template_3: msgTemplate3,
-      texto_link_lp: textoLinkLp, imagem_primeira_msg: campImagemB64,
+      texto_link_lp: textoLinkLp, imagem_primeira_msg: campImagemB64, contexto_agente: contextoAgente,
     }).select('id').single();
     if (error) { alert('Erro ao criar campanha: ' + error.message); return; }
 
