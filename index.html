@@ -1003,7 +1003,7 @@
     <h1>Maysonnave Imóveis</h1>
     <p>Dashboard operacional</p>
   </div>
-  <div id="appVersionBadge" title="Versão do Dashboard" style="font-size:11px;color:var(--text-muted);opacity:0.7;border:1px solid var(--border);border-radius:20px;padding:2px 9px;margin-left:10px;user-select:none;">v3.1</div>
+  <div id="appVersionBadge" title="Versão do Dashboard" style="font-size:11px;color:var(--text-muted);opacity:0.7;border:1px solid var(--border);border-radius:20px;padding:2px 9px;margin-left:10px;user-select:none;">v3.4</div>
   <div style="flex:1"></div>
   <div id="headerUserInfo" style="font-size:12px;color:var(--text-muted);margin-right:12px"></div>
   <button class="btn btn-ghost" id="btnLogout">Sair</button>
@@ -4386,8 +4386,11 @@
     const texto = montarTextoLinkLP(lead);
     const url = `https://wa.me/55${lead.telefone.replace(/\D/g,'')}?text=${encodeURIComponent(texto)}`;
     if (!abrirWhatsApp(url)) return;
+    await registrarEnvioAutomatico(leadId, `🔗 Link da LP enviado: "${texto}"`);
     if (ETAPAS_PROMOVIVEIS_ATENDENDO.includes(lead.classificacao || null)) {
       await classificarLead(leadId, 'atendendo');
+    } else {
+      openLeadDetail(leadId);
     }
   }
 
@@ -4439,7 +4442,12 @@
     const texto = montarMensagemLead(lead);
     const url = `https://wa.me/55${lead.telefone.replace(/\D/g,'')}` + (texto ? `?text=${encodeURIComponent(texto)}` : '');
     if (!abrirWhatsApp(url)) return;
-    if (!lead.classificacao) await classificarLead(leadId, 'contatado');
+    await registrarEnvioAutomatico(leadId, texto ? `💬 Mensagem enviada: "${texto}"` : '💬 Mensagem enviada (sem template configurado)');
+    if (!lead.classificacao) {
+      await classificarLead(leadId, 'contatado');
+    } else {
+      openLeadDetail(leadId);
+    }
   }
 
   // ── ✨ Sugestão de mensagem (Passo 1 do agente virtual) ─────────
@@ -4461,6 +4469,11 @@
     const horaAgora = new Date().getHours();
     const periodoDia = horaAgora >= 5 && horaAgora < 12 ? 'manhã' : horaAgora >= 12 && horaAgora < 18 ? 'tarde' : 'noite';
 
+    // Quantas mensagens já saíram pra esse lead — a que vai ser gerada agora
+    // é a próxima da sequência. Deixa o agente saber a tentativa real (2ª,
+    // 5ª...) em vez de sempre assumir que é a segunda.
+    const tentativaNumero = historico.filter(a => a.automatico).length + 1;
+
     const { data, error } = await supabaseClient.functions.invoke('sugerir-mensagem', {
       body: {
         briefing: campanhaAtual.contextoAgente,
@@ -4474,6 +4487,7 @@
         })),
         exemplos: campanhaAtual.templates || [],
         periodoDia,
+        tentativaNumero,
       },
     });
     if (btn) btn.disabled = false;
@@ -4509,7 +4523,12 @@
     if (!lead || !texto) return;
     const url = `https://wa.me/55${lead.telefone.replace(/\D/g,'')}?text=${encodeURIComponent(texto)}`;
     if (!abrirWhatsApp(url)) return;
-    if (!lead.classificacao) await classificarLead(leadId, 'contatado');
+    await registrarEnvioAutomatico(leadId, `✨ Mensagem do agente enviada: "${texto}"`);
+    if (!lead.classificacao) {
+      await classificarLead(leadId, 'contatado');
+    } else {
+      openLeadDetail(leadId);
+    }
   }
 
   function openLeadDetail(leadId) {
@@ -4530,6 +4549,10 @@
 
     let anotacoesArr = [];
     try { const p = JSON.parse(lead.anotacoes || '[]'); if (Array.isArray(p)) anotacoesArr = p; } catch(e) {}
+    const totalEnvios = anotacoesArr.filter(a => a.automatico).length;
+    const totalEnviosHtml = totalEnvios
+      ? `<div class="lead-detail-phone">📨 ${totalEnvios} mensage${totalEnvios > 1 ? 'ns' : 'm'} enviada${totalEnvios > 1 ? 's' : ''}</div>`
+      : '';
 
     const timeline = anotacoesArr.length
       ? `<div class="lead-obs-label" style="margin-top:20px">Histórico</div>
@@ -4578,6 +4601,7 @@
         <div class="lead-detail-phone">${escHtml(lead.telefone)}</div>
         ${lead.email ? `<div class="lead-detail-phone">${escHtml(lead.email)}</div>` : ''}
         ${lpVisitaHtml}
+        ${totalEnviosHtml}
         <div class="lead-contact-btns">
           <a href="${telLink}" class="btn btn-ghost btn-sm">📞 Ligar</a>
           ${campanhaAtual?.imagemPrimeiraMsg ? `<button class="btn btn-ghost btn-sm" onclick="copiarImagemPrimeiraMensagem()" title="Copia a imagem — cole (Ctrl+V) depois de abrir o WhatsApp">🖼️ Copiar imagem</button>` : ''}
@@ -4596,6 +4620,23 @@
         <textarea class="nova-anotacao-input" id="novaAnotInput" placeholder="Registre o que aconteceu nesse contato…"></textarea>
         <button class="nova-anotacao-ok" onclick="salvarNovaAnotacao('${leadId}')">OK</button>
       </div>`;
+  }
+
+  // Registro automático de envio — toda vez que uma mensagem sai (mesmo
+  // quando a etapa não muda, ex: 2ª, 3ª tentativa em "Contatado"), fica uma
+  // entrada na timeline com data/hora e o texto exato enviado. É o que
+  // permite contar quantas tentativas já rolaram e o agente saber em qual
+  // tentativa está de verdade. `automatico:true` distingue de anotação
+  // manual do corretor sem quebrar quem só lê em/etapa/texto.
+  async function registrarEnvioAutomatico(leadId, texto) {
+    const lead = campanhaLeads.find(l => l.id === leadId);
+    if (!lead) return;
+    let arr = [];
+    try { const p = JSON.parse(lead.anotacoes || '[]'); if (Array.isArray(p)) arr = p; } catch(e) {}
+    arr.push({ em: new Date().toISOString(), etapa: lead.classificacao || null, texto, automatico: true });
+    const novoJson = JSON.stringify(arr);
+    await supabaseClient.from('campanha_leads').update({ anotacoes: novoJson }).eq('id', leadId);
+    lead.anotacoes = novoJson;
   }
 
   async function salvarNovaAnotacao(leadId) {
