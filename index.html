@@ -1003,7 +1003,7 @@
     <h1>Maysonnave Imóveis</h1>
     <p>Dashboard operacional</p>
   </div>
-  <div id="appVersionBadge" title="Versão do Dashboard" style="font-size:11px;color:var(--text-muted);opacity:0.7;border:1px solid var(--border);border-radius:20px;padding:2px 9px;margin-left:10px;user-select:none;">v3.0</div>
+  <div id="appVersionBadge" title="Versão do Dashboard" style="font-size:11px;color:var(--text-muted);opacity:0.7;border:1px solid var(--border);border-radius:20px;padding:2px 9px;margin-left:10px;user-select:none;">v3.1</div>
   <div style="flex:1"></div>
   <div id="headerUserInfo" style="font-size:12px;color:var(--text-muted);margin-right:12px"></div>
   <button class="btn btn-ghost" id="btnLogout">Sair</button>
@@ -4458,6 +4458,9 @@
     let historico = [];
     try { const p = JSON.parse(lead.anotacoes || '[]'); if (Array.isArray(p)) historico = p; } catch(e) {}
 
+    const horaAgora = new Date().getHours();
+    const periodoDia = horaAgora >= 5 && horaAgora < 12 ? 'manhã' : horaAgora >= 12 && horaAgora < 18 ? 'tarde' : 'noite';
+
     const { data, error } = await supabaseClient.functions.invoke('sugerir-mensagem', {
       body: {
         briefing: campanhaAtual.contextoAgente,
@@ -4470,6 +4473,7 @@
           texto: a.texto || '',
         })),
         exemplos: campanhaAtual.templates || [],
+        periodoDia,
       },
     });
     if (btn) btn.disabled = false;
