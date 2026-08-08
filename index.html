@@ -1394,13 +1394,19 @@
           <input type="url" id="campLpUrl" placeholder="https://...">
         </div>
         <div class="form-group" style="grid-column:1/-1">
-          <label>Modelos de mensagem de WhatsApp <span style="font-size:11px;color:var(--text-muted)">(opcional — preencha até 3; o sistema faz o rodízio entre os leads sozinho. Use <code>{nome}</code>, <code>{empreendimento}</code> e <code>{link}</code>)</span></label>
+          <label>WhatsApp 1 — mensagem de resgate <span style="font-size:11px;color:var(--text-muted)">(opcional — preencha até 3; o sistema faz o rodízio entre os leads sozinho. Use <code>{nome}</code>, <code>{empreendimento}</code>, <code>{origem}</code> e <code>{link}</code>. <b>{origem}</b> é o empreendimento por onde aquele lead entrou, varia lead a lead)</span></label>
           <textarea id="campMsgTemplate1" rows="2" style="margin-bottom:6px" placeholder="Modelo 1"></textarea>
           <textarea id="campMsgTemplate2" rows="2" style="margin-bottom:6px" placeholder="Modelo 2 (opcional)"></textarea>
           <textarea id="campMsgTemplate3" rows="2" placeholder="Modelo 3 (opcional)"></textarea>
         </div>
         <div class="form-group" style="grid-column:1/-1">
-          <label>Texto do botão "Enviar LP" <span style="font-size:11px;color:var(--text-muted)">(opcional — o link sempre vai junto, mesmo sem usar <code>{link}</code> no texto. Placeholders disponíveis: <code>{nome}</code>, <code>{empreendimento}</code>, <code>{link}</code>)</span></label>
+          <label>WhatsApp 2 — conteúdo do empreendimento <span style="font-size:11px;color:var(--text-muted)">(opcional — a segunda mensagem, mandada depois que o lead respondeu que quer receber. Rodízio próprio, independente do WhatsApp 1. Mesmos placeholders)</span></label>
+          <textarea id="campMsg2Template1" rows="2" style="margin-bottom:6px" placeholder="Modelo 1"></textarea>
+          <textarea id="campMsg2Template2" rows="2" style="margin-bottom:6px" placeholder="Modelo 2 (opcional)"></textarea>
+          <textarea id="campMsg2Template3" rows="2" placeholder="Modelo 3 (opcional)"></textarea>
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Texto do botão "Enviar LP" <span style="font-size:11px;color:var(--text-muted)">(opcional — o link sempre vai junto, mesmo sem usar <code>{link}</code> no texto. Placeholders disponíveis: <code>{nome}</code>, <code>{empreendimento}</code>, <code>{origem}</code>, <code>{link}</code>)</span></label>
           <textarea id="campTextoLinkLp" rows="2" placeholder="Nesse site tem informações e imagens do empreendimento&#10;{link}"></textarea>
         </div>
         <div class="form-group" style="grid-column:1/-1">
@@ -1430,7 +1436,7 @@
           <div id="campCorretoresCheckboxes" style="display:flex;flex-wrap:wrap;gap:8px;padding:8px 0"></div>
         </div>
         <div id="campCSVWrap" class="form-group" style="grid-column:1/-1">
-          <label>Lista de leads (CSV: nome,telefone,email — e-mail é opcional, uma linha por lead)</label>
+          <label>Lista de leads (CSV: nome,telefone,email,origem — e-mail e origem são opcionais, uma linha por lead)</label>
           <div class="photo-drop-zone" id="campCSVZone">
             <input type="file" id="campCSVInput" accept=".csv,.txt,.xlsx,.xls">
             <div id="campCSVPreview" style="text-align:center;color:var(--text-muted);font-size:13px;pointer-events:none">Clique ou arraste o arquivo CSV aqui</div>
@@ -2865,7 +2871,7 @@
     if (item.proprietarioNome || item.proprietarioTelefone || item.proprietarioEmail) {
       const tel = item.proprietarioTelefone;
       const telLink = tel ? `<a href="tel:${escHtml(tel)}" style="color:var(--gold)">${escHtml(tel)}</a>` : '';
-      const waLink  = tel ? ` &nbsp;<a href="https://wa.me/55${tel.replace(/\D/g,'')}" target="_blank" rel="noopener" style="color:var(--gold);font-size:12px">WhatsApp</a>` : '';
+      const waLink  = tel ? ` &nbsp;<a href="https://wa.me/${waNumero(tel)}" target="_blank" rel="noopener" style="color:var(--gold);font-size:12px">WhatsApp</a>` : '';
       const emailLink = item.proprietarioEmail ? `<a href="mailto:${escHtml(item.proprietarioEmail)}" target="_blank" style="color:var(--gold)">${escHtml(item.proprietarioEmail)}</a>` : '';
       propEl.innerHTML = `<hr class="drawer-divider"><div class="drawer-section">
         <div class="drawer-section-label">Proprietário</div>
@@ -4073,15 +4079,32 @@
     return (data || []).map(r => r.campanha_id);
   }
 
+  // Supabase corta em 1000 linhas por request; pagina com .range() até esgotar.
+  async function fetchAllRows(buildQuery) {
+    const PAGE = 1000;
+    let all = [];
+    let from = 0;
+    while (true) {
+      const { data, error } = await buildQuery().range(from, from + PAGE - 1);
+      if (error) { console.error(error); break; }
+      all = all.concat(data || []);
+      if (!data || data.length < PAGE) break;
+      from += PAGE;
+    }
+    return all;
+  }
+
   async function loadLeadsDaCampanha(campanhaId) {
     const isAdmin = currentProfile?.role === 'admin';
-    let q = supabaseClient.from('campanha_leads').select('*').eq('campanha_id', campanhaId).order('created_at');
-    if (!isAdmin) q = q.eq('corretor_id', currentUser.id);
-    const { data, error } = await q;
-    if (error) { console.error(error); return []; }
+    const data = await fetchAllRows(() => {
+      let q = supabaseClient.from('campanha_leads').select('*').eq('campanha_id', campanhaId).order('created_at');
+      if (!isAdmin) q = q.eq('corretor_id', currentUser.id);
+      return q;
+    });
     return data.map(r => ({
       id: r.id, campanhaId: r.campanha_id, corretorId: r.corretor_id,
-      nome: r.nome, telefone: r.telefone, email: r.email || '', classificacao: r.classificacao,
+      nome: r.nome, telefone: r.telefone, email: r.email || '', origem: r.origem || '',
+      classificacao: r.classificacao,
       anotacoes: r.anotacoes || '', clienteId: r.cliente_id,
       classificadoEm: r.classificado_em,
       crmEstagio: r.crm_estagio || null,
@@ -4187,7 +4210,7 @@
 
       // Buscar dados da campanha (nome, prazo, vínculo, templates de mensagem)
       const { data: camp, error: campErro } = await supabaseClient.from('campanhas')
-        .select('nome, created_at, meta_atendimento, empreendimento_id, imovel_id, lp_url, msg_template_1, msg_template_2, msg_template_3, texto_link_lp, imagem_primeira_msg, contexto_agente')
+        .select('nome, created_at, meta_atendimento, empreendimento_id, imovel_id, lp_url, msg_template_1, msg_template_2, msg_template_3, msg2_template_1, msg2_template_2, msg2_template_3, texto_link_lp, imagem_primeira_msg, contexto_agente')
         .eq('id', id).single();
       if (campErro) throw campErro;
       document.getElementById('campanhaNomeHeader').textContent = camp?.nome || '';
@@ -4211,6 +4234,7 @@
         vinculoNome,
         lpUrl: camp?.lp_url || null,
         templates: [camp?.msg_template_1, camp?.msg_template_2, camp?.msg_template_3].filter(t => t && t.trim()),
+        templates2: [camp?.msg2_template_1, camp?.msg2_template_2, camp?.msg2_template_3].filter(t => t && t.trim()),
         textoLinkLp: camp?.texto_link_lp || null,
         imagemPrimeiraMsg: camp?.imagem_primeira_msg || null,
         contextoAgente: camp?.contexto_agente || null,
@@ -4433,6 +4457,45 @@
     return tpl
       .replaceAll('{nome}', primeiroNome(lead.nome))
       .replaceAll('{empreendimento}', campanhaAtual?.vinculoNome || '')
+      .replaceAll('{origem}', origemDoLead(lead))
+      .replaceAll('{link}', linkComRastreio(lead.id));
+  }
+
+  // {origem} é o empreendimento por onde o lead ENTROU, que numa campanha de
+  // reativação varia lead a lead. Sem origem gravada, cai no empreendimento da
+  // campanha — assim campanhas antigas seguem funcionando sem ajuste.
+  function origemDoLead(lead) {
+    return lead?.origem || campanhaAtual?.vinculoNome || '';
+  }
+
+  // Todo link de WhatsApp é montado como wa.me/55 + telefone, então o número
+  // guardado precisa ser DDD + número, sem país. Listas importadas de fora às
+  // vezes já vêm com o 55 na frente (13 dígitos) — tira, senão vira 5555...
+  function waNumero(tel) {
+    let d = String(tel || '').replace(/\D/g, '');
+    if (d.length > 11 && d.startsWith('55')) d = d.slice(2);
+    return '55' + d;
+  }
+
+  // Rodízio da segunda mensagem, separado do da primeira: o lead pode receber
+  // o resgate 1 e o conteúdo 3, os dois contadores andam independentes.
+  let campMsg2RotationIndex = 0;
+
+  function escolherTemplateMensagem2() {
+    const templates = campanhaAtual?.templates2 || [];
+    if (!templates.length) return null;
+    const tpl = templates[campMsg2RotationIndex % templates.length];
+    campMsg2RotationIndex++;
+    return tpl;
+  }
+
+  function montarMensagem2Lead(lead) {
+    const tpl = escolherTemplateMensagem2();
+    if (!tpl) return '';
+    return tpl
+      .replaceAll('{nome}', primeiroNome(lead.nome))
+      .replaceAll('{empreendimento}', campanhaAtual?.vinculoNome || '')
+      .replaceAll('{origem}', origemDoLead(lead))
       .replaceAll('{link}', linkComRastreio(lead.id));
   }
 
@@ -4445,7 +4508,8 @@
     const link = linkComRastreio(lead.id);
     const texto = tpl
       .replaceAll('{nome}', primeiroNome(lead.nome))
-      .replaceAll('{empreendimento}', campanhaAtual?.vinculoNome || '');
+      .replaceAll('{empreendimento}', campanhaAtual?.vinculoNome || '')
+      .replaceAll('{origem}', origemDoLead(lead));
     return texto.includes('{link}')
       ? texto.replaceAll('{link}', link)
       : (texto.trim() ? `${texto}\n${link}` : link);
@@ -4481,9 +4545,27 @@
     const lead = campanhaLeads.find(l => l.id === leadId);
     if (!lead || !campanhaAtual?.lpUrl) return;
     const texto = montarTextoLinkLP(lead);
-    const url = `https://wa.me/55${lead.telefone.replace(/\D/g,'')}?text=${encodeURIComponent(texto)}`;
+    const url = `https://wa.me/${waNumero(lead.telefone)}?text=${encodeURIComponent(texto)}`;
     if (!abrirWhatsApp(url)) return;
     await registrarEnvioAutomatico(leadId, `🔗 Link da LP enviado: "${texto}"`);
+    if (ETAPAS_PROMOVIVEIS_ATENDENDO.includes(lead.classificacao || null)) {
+      await classificarLead(leadId, 'atendendo');
+    } else {
+      openLeadDetail(leadId);
+    }
+  }
+
+  // Botão dedicado da 2ª mensagem: manda o conteúdo do empreendimento,
+  // com rodízio próprio entre os até 3 modelos de msg2. Só aparece se a
+  // campanha tiver ao menos um modelo preenchido.
+  async function enviarMensagem2(leadId) {
+    const lead = campanhaLeads.find(l => l.id === leadId);
+    if (!lead || !(campanhaAtual?.templates2 || []).length) return;
+    const texto = montarMensagem2Lead(lead);
+    if (!texto) return;
+    const url = `https://wa.me/${waNumero(lead.telefone)}?text=${encodeURIComponent(texto)}`;
+    if (!abrirWhatsApp(url)) return;
+    await registrarEnvioAutomatico(leadId, `💬 WhatsApp 2 enviado: "${texto}"`);
     if (ETAPAS_PROMOVIVEIS_ATENDENDO.includes(lead.classificacao || null)) {
       await classificarLead(leadId, 'atendendo');
     } else {
@@ -4537,7 +4619,7 @@
     const lead = campanhaLeads.find(l => l.id === leadId);
     if (!lead) return;
     const texto = montarMensagemLead(lead);
-    const url = `https://wa.me/55${lead.telefone.replace(/\D/g,'')}` + (texto ? `?text=${encodeURIComponent(texto)}` : '');
+    const url = `https://wa.me/${waNumero(lead.telefone)}` + (texto ? `?text=${encodeURIComponent(texto)}` : '');
     if (!abrirWhatsApp(url)) return;
     await registrarEnvioAutomatico(leadId, texto ? `💬 Mensagem enviada: "${texto}"` : '💬 Mensagem enviada (sem template configurado)');
     if (!lead.classificacao) {
@@ -4626,7 +4708,7 @@
     const lead = campanhaLeads.find(l => l.id === leadId);
     const texto = document.getElementById('sugestaoMsgTexto')?.value.trim();
     if (!lead || !texto) return;
-    const url = `https://wa.me/55${lead.telefone.replace(/\D/g,'')}?text=${encodeURIComponent(texto)}`;
+    const url = `https://wa.me/${waNumero(lead.telefone)}?text=${encodeURIComponent(texto)}`;
     if (!abrirWhatsApp(url)) return;
     await registrarEnvioAutomatico(leadId, `✨ Mensagem do agente enviada: "${texto}"`);
     if (!lead.classificacao) {
@@ -4710,7 +4792,8 @@
         <div class="lead-contact-btns">
           <a href="${telLink}" class="btn btn-ghost btn-sm">📞 Ligar</a>
           ${campanhaAtual?.imagemPrimeiraMsg ? `<button class="btn btn-ghost btn-sm" onclick="copiarImagemPrimeiraMensagem()" title="Copia a imagem — cole (Ctrl+V) depois de abrir o WhatsApp">🖼️ Copiar imagem</button>` : ''}
-          <button class="btn btn-ghost btn-sm" onclick="enviarMensagemLead('${leadId}')">💬 WhatsApp</button>
+          <button class="btn btn-ghost btn-sm" onclick="enviarMensagemLead('${leadId}')">💬 WhatsApp 1</button>
+          ${(campanhaAtual?.templates2 || []).length ? `<button class="btn btn-ghost btn-sm" onclick="enviarMensagem2('${leadId}')" title="Segunda mensagem: o conteúdo do empreendimento, com rodízio próprio">💬 WhatsApp 2</button>` : ''}
           ${campanhaAtual?.lpUrl ? `<button class="btn btn-ghost btn-sm" onclick="enviarLinkLP('${leadId}')" title="Manda só o link da LP com o texto configurado na campanha">🔗 Enviar LP</button>` : ''}
           ${campanhaAtual?.contextoAgente && !campEtapasSemAgente.includes(lead.classificacao) ? `<button class="btn btn-ghost btn-sm" id="btnSugerirMsg" onclick="sugerirMensagem('${leadId}')" title="O agente escreve uma mensagem personalizada com base no briefing, na etapa e no histórico desse lead — você revisa antes de enviar">✨ Sugerir mensagem</button>` : ''}
           ${lead.email ? `<a href="mailto:${escHtml(lead.email)}" target="_blank" class="btn btn-ghost btn-sm">✉️ E-mail</a>` : ''}
@@ -5219,6 +5302,9 @@
     document.getElementById('campMsgTemplate1').value = c.msg_template_1 || '';
     document.getElementById('campMsgTemplate2').value = c.msg_template_2 || '';
     document.getElementById('campMsgTemplate3').value = c.msg_template_3 || '';
+    document.getElementById('campMsg2Template1').value = c.msg2_template_1 || '';
+    document.getElementById('campMsg2Template2').value = c.msg2_template_2 || '';
+    document.getElementById('campMsg2Template3').value = c.msg2_template_3 || '';
     document.getElementById('campTextoLinkLp').value = c.texto_link_lp || '';
     document.getElementById('campContextoAgente').value = c.contexto_agente || '';
     campImagemB64 = c.imagem_primeira_msg || null;
@@ -5247,6 +5333,9 @@
     document.getElementById('campMsgTemplate1').value = c?.msg_template_1 || '';
     document.getElementById('campMsgTemplate2').value = c?.msg_template_2 || '';
     document.getElementById('campMsgTemplate3').value = c?.msg_template_3 || '';
+    document.getElementById('campMsg2Template1').value = c?.msg2_template_1 || '';
+    document.getElementById('campMsg2Template2').value = c?.msg2_template_2 || '';
+    document.getElementById('campMsg2Template3').value = c?.msg2_template_3 || '';
     document.getElementById('campTextoLinkLp').value = c?.texto_link_lp || '';
     document.getElementById('campContextoAgente').value = c?.contexto_agente || '';
     campImagemB64 = c?.imagem_primeira_msg || null;
@@ -5298,6 +5387,9 @@
     const msgTemplate1 = document.getElementById('campMsgTemplate1').value.trim() || null;
     const msgTemplate2 = document.getElementById('campMsgTemplate2').value.trim() || null;
     const msgTemplate3 = document.getElementById('campMsgTemplate3').value.trim() || null;
+    const msg2Template1 = document.getElementById('campMsg2Template1').value.trim() || null;
+    const msg2Template2 = document.getElementById('campMsg2Template2').value.trim() || null;
+    const msg2Template3 = document.getElementById('campMsg2Template3').value.trim() || null;
     const textoLinkLp = document.getElementById('campTextoLinkLp').value.trim() || null;
     const contextoAgente = document.getElementById('campContextoAgente').value.trim() || null;
 
@@ -5377,7 +5469,8 @@
         .update({
           nome, empreendimento_id: empId, imovel_id: imovelId, status, meta_atendimento: metaAtendimento,
           lp_url: lpUrl, msg_template_1: msgTemplate1, msg_template_2: msgTemplate2, msg_template_3: msgTemplate3,
-          texto_link_lp: textoLinkLp, imagem_primeira_msg: campImagemB64, contexto_agente: contextoAgente,
+          msg2_template_1: msg2Template1, msg2_template_2: msg2Template2, msg2_template_3: msg2Template3,
+      texto_link_lp: textoLinkLp, imagem_primeira_msg: campImagemB64, contexto_agente: contextoAgente,
         })
         .eq('id', editingCampanhaId);
       if (error) { alert('Erro ao atualizar campanha: ' + error.message); return; }
@@ -5395,6 +5488,7 @@
     const { data: camp, error } = await supabaseClient.from('campanhas').insert({
       nome, empreendimento_id: empId, imovel_id: imovelId, created_by: currentUser.id, meta_atendimento: metaAtendimento,
       lp_url: lpUrl, msg_template_1: msgTemplate1, msg_template_2: msgTemplate2, msg_template_3: msgTemplate3,
+      msg2_template_1: msg2Template1, msg2_template_2: msg2Template2, msg2_template_3: msg2Template3,
       texto_link_lp: textoLinkLp, imagem_primeira_msg: campImagemB64, contexto_agente: contextoAgente,
     }).select('id').single();
     if (error) { alert('Erro ao criar campanha: ' + error.message); return; }
@@ -5409,6 +5503,7 @@
       campanha_id: camp.id,
       corretor_id: corretoresIds[i % corretoresIds.length],
       nome: l.nome, telefone: l.telefone, email: l.email || null,
+      origem: l.origem || null,
     }));
     const BATCH = 200;
     for (let i = 0; i < leadsPayload.length; i += BATCH) {
@@ -5444,11 +5539,13 @@
         const col0 = String(row[0] || '').trim();
         const col1 = String(row[1] || '').trim();
         const col2 = String(row[2] || '').trim();
+        const col3 = String(row[3] || '').trim();
         if (i === 0 && /nome|telefone|phone|contato/i.test(col0)) return;
         const nome = col0;
         const telefone = col1.replace(/\D/g, '');
         const email = col2;
-        if (nome && telefone) campanhaCsvLeads.push({ nome, telefone, email });
+        const origem = col3;
+        if (nome && telefone) campanhaCsvLeads.push({ nome, telefone, email, origem });
       });
       document.getElementById(previewId).textContent =
         campanhaCsvLeads.length
@@ -5468,7 +5565,8 @@
       const nome = (parts[0] || '').replace(/^"|"$/g,'').trim();
       const telefone = (parts[1] || '').replace(/^"|"$/g,'').trim().replace(/\D/g,'');
       const email = (parts[2] || '').replace(/^"|"$/g,'').trim();
-      if (nome && telefone) campanhaCsvLeads.push({ nome, telefone, email });
+      const origem = (parts[3] || '').replace(/^"|"$/g,'').trim();
+      if (nome && telefone) campanhaCsvLeads.push({ nome, telefone, email, origem });
     });
     document.getElementById(previewId).textContent =
       campanhaCsvLeads.length
