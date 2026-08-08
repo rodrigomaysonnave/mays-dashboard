@@ -4839,6 +4839,9 @@
         <div class="lead-detail-name">${escHtml(lead.nome)}</div>
         <div class="lead-detail-phone">${escHtml(lead.telefone)}</div>
         ${lead.email ? `<div class="lead-detail-phone">${escHtml(lead.email)}</div>` : ''}
+        ${lead.origem
+          ? `<div class="lead-detail-phone" title="Empreendimento por onde este lead entrou — é o que o {origem} usa">↩ veio de: <b>${escHtml(lead.origem)}</b></div>`
+          : `<div class="lead-detail-phone" style="color:var(--red)" title="Sem origem gravada: o {origem} cai no empreendimento da campanha">↩ sem origem gravada</div>`}
         ${lpVisitaHtml}
         ${totalEnviosHtml}
         <div class="lead-contact-btns">
