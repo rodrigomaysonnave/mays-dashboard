@@ -4473,7 +4473,13 @@
   // logada, então é sempre o nome dela que deve assinar. Resolve na hora do
   // envio, e não na campanha, porque a mesma campanha tem vários corretores.
   function nomeDoCorretor() {
-    return primeiroNome(currentProfile?.nome || '');
+    const doCadastro = primeiroNome(currentProfile?.nome || '');
+    if (doCadastro) return doCadastro;
+    // Cadastro sem nome preenchido: cai no login, senão a mensagem sairia
+    // "Aqui é o , da Mays Imóveis" pro lead.
+    const login = (currentUser?.email || '').split('@')[0].replace(/[._-]+/g, ' ').trim();
+    const alt = primeiroNome(login);
+    return alt ? alt.charAt(0).toUpperCase() + alt.slice(1) : '';
   }
 
   // Todo link de WhatsApp é montado como wa.me/55 + telefone, então o número
