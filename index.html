@@ -1394,19 +1394,19 @@
           <input type="url" id="campLpUrl" placeholder="https://...">
         </div>
         <div class="form-group" style="grid-column:1/-1">
-          <label>WhatsApp 1 — mensagem de resgate <span style="font-size:11px;color:var(--text-muted)">(opcional — preencha até 3; o sistema faz o rodízio entre os leads sozinho. Use <code>{nome}</code>, <code>{empreendimento}</code>, <code>{origem}</code>, <code>{corretor}</code> e <code>{link}</code>. <b>{origem}</b> é o empreendimento por onde aquele lead entrou, varia lead a lead)</span></label>
+          <label>WhatsApp 1 — mensagem de resgate <span style="font-size:11px;color:var(--text-muted)">(opcional — preencha até 3; o sistema faz o rodízio entre os leads sozinho. Use <code>{nome}</code>, <code>{empreendimento}</code>, <code>{origem}</code>, <code>{corretor}</code>, <code>{saudacao}</code> e <code>{link}</code>. <b>{origem}</b> é o empreendimento por onde aquele lead entrou, varia lead a lead)</span></label>
           <textarea id="campMsgTemplate1" rows="2" style="margin-bottom:6px" placeholder="Modelo 1"></textarea>
           <textarea id="campMsgTemplate2" rows="2" style="margin-bottom:6px" placeholder="Modelo 2 (opcional)"></textarea>
           <textarea id="campMsgTemplate3" rows="2" placeholder="Modelo 3 (opcional)"></textarea>
         </div>
         <div class="form-group" style="grid-column:1/-1">
-          <label>WhatsApp 2 — conteúdo do empreendimento <span style="font-size:11px;color:var(--text-muted)">(opcional — a segunda mensagem, mandada depois que o lead respondeu que quer receber. Rodízio próprio, independente do WhatsApp 1. Mesmos placeholders, incluindo <code>{corretor}</code>)</span></label>
+          <label>WhatsApp 2 — conteúdo do empreendimento <span style="font-size:11px;color:var(--text-muted)">(opcional — a segunda mensagem, mandada depois que o lead respondeu que quer receber. Rodízio próprio, independente do WhatsApp 1. Mesmos placeholders, incluindo <code>{corretor}</code> e <code>{saudacao}</code>)</span></label>
           <textarea id="campMsg2Template1" rows="2" style="margin-bottom:6px" placeholder="Modelo 1"></textarea>
           <textarea id="campMsg2Template2" rows="2" style="margin-bottom:6px" placeholder="Modelo 2 (opcional)"></textarea>
           <textarea id="campMsg2Template3" rows="2" placeholder="Modelo 3 (opcional)"></textarea>
         </div>
         <div class="form-group" style="grid-column:1/-1">
-          <label>Texto do botão "Enviar LP" <span style="font-size:11px;color:var(--text-muted)">(opcional — o link sempre vai junto, mesmo sem usar <code>{link}</code> no texto. Placeholders disponíveis: <code>{nome}</code>, <code>{empreendimento}</code>, <code>{origem}</code>, <code>{corretor}</code>, <code>{link}</code>)</span></label>
+          <label>Texto do botão "Enviar LP" <span style="font-size:11px;color:var(--text-muted)">(opcional — o link sempre vai junto, mesmo sem usar <code>{link}</code> no texto. Placeholders disponíveis: <code>{nome}</code>, <code>{empreendimento}</code>, <code>{origem}</code>, <code>{corretor}</code>, <code>{saudacao}</code>, <code>{link}</code>)</span></label>
           <textarea id="campTextoLinkLp" rows="2" placeholder="Nesse site tem informações e imagens do empreendimento&#10;{link}"></textarea>
         </div>
         <div class="form-group" style="grid-column:1/-1">
@@ -4459,6 +4459,7 @@
       .replaceAll('{empreendimento}', campanhaAtual?.vinculoNome || '')
       .replaceAll('{origem}', origemDoLead(lead))
       .replaceAll('{corretor}', nomeDoCorretor())
+      .replaceAll('{saudacao}', saudacaoHorario())
       .replaceAll('{link}', linkComRastreio(lead.id));
   }
 
@@ -4480,6 +4481,16 @@
     const login = (currentUser?.email || '').split('@')[0].replace(/[._-]+/g, ' ').trim();
     const alt = primeiroNome(login);
     return alt ? alt.charAt(0).toUpperCase() + alt.slice(1) : '';
+  }
+
+  // {saudacao} resolve na hora do envio, não na campanha: o mesmo modelo
+  // mandado de manhã e à tarde precisa cumprimentar certo. Usa o relógio
+  // do aparelho de quem está enviando.
+  function saudacaoHorario(d = new Date()) {
+    const h = d.getHours();
+    if (h < 12) return 'Bom dia';
+    if (h < 18) return 'Boa tarde';
+    return 'Boa noite';
   }
 
   // Todo link de WhatsApp é montado como wa.me/55 + telefone, então o número
@@ -4511,6 +4522,7 @@
       .replaceAll('{empreendimento}', campanhaAtual?.vinculoNome || '')
       .replaceAll('{origem}', origemDoLead(lead))
       .replaceAll('{corretor}', nomeDoCorretor())
+      .replaceAll('{saudacao}', saudacaoHorario())
       .replaceAll('{link}', linkComRastreio(lead.id));
   }
 
@@ -4525,7 +4537,8 @@
       .replaceAll('{nome}', primeiroNome(lead.nome))
       .replaceAll('{empreendimento}', campanhaAtual?.vinculoNome || '')
       .replaceAll('{origem}', origemDoLead(lead))
-      .replaceAll('{corretor}', nomeDoCorretor());
+      .replaceAll('{corretor}', nomeDoCorretor())
+      .replaceAll('{saudacao}', saudacaoHorario());
     return texto.includes('{link}')
       ? texto.replaceAll('{link}', link)
       : (texto.trim() ? `${texto}\n${link}` : link);
