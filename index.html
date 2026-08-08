@@ -5605,13 +5605,25 @@
         const origem = col3;
         if (nome && telefone) campanhaCsvLeads.push({ nome, telefone, email, origem });
       });
-      document.getElementById(previewId).textContent =
-        campanhaCsvLeads.length
-          ? `✓ ${campanhaCsvLeads.length} leads importados`
-          : '⚠ Nenhum lead válido. Coluna A = nome, Coluna B = telefone';
+      previewImportLeads(previewId, '⚠ Nenhum lead válido. Coluna A = nome, Coluna B = telefone');
     } catch(e) {
       document.getElementById(previewId).textContent = '⚠ Erro ao ler o arquivo: ' + e.message;
     }
+  }
+
+  // Preview do import: além de contar leads, diz se a 4ª coluna trouxe origem.
+  // Sem isso o erro de coluna trocada só aparecia depois de salvar e mandar a
+  // mensagem pro lead com o empreendimento errado.
+  function previewImportLeads(previewId, dica) {
+    const el = document.getElementById(previewId);
+    const n = campanhaCsvLeads.length;
+    if (!n) { el.textContent = dica; return; }
+    const comOrigem = campanhaCsvLeads.filter(l => (l.origem || '').trim()).length;
+    el.textContent = comOrigem === n
+      ? `✓ ${n} leads importados · origem lida nos ${n}`
+      : comOrigem
+        ? `✓ ${n} leads importados · ⚠ origem só em ${comOrigem}`
+        : `✓ ${n} leads importados · ⚠ sem origem: a 4ª coluna precisa ser a origem`;
   }
 
   function parseCampanhaCSV(text, previewId) {
@@ -5626,10 +5638,7 @@
       const origem = (parts[3] || '').replace(/^"|"$/g,'').trim();
       if (nome && telefone) campanhaCsvLeads.push({ nome, telefone, email, origem });
     });
-    document.getElementById(previewId).textContent =
-      campanhaCsvLeads.length
-        ? `✓ ${campanhaCsvLeads.length} leads importados`
-        : '⚠ Nenhum lead válido encontrado. Verifique o formato: nome,telefone';
+    previewImportLeads(previewId, '⚠ Nenhum lead válido. Formato: nome,telefone,email,origem');
   }
 
   function lerArquivoLeads(file, previewId) {
