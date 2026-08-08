@@ -5291,11 +5291,9 @@
     document.getElementById('campMsgTemplate3').value = '';
     document.getElementById('campTextoLinkLp').value = '';
     document.getElementById('campContextoAgente').value = '';
-    document.getElementById('campCSVPreview').textContent = 'Clique ou arraste o arquivo CSV aqui';
-    document.getElementById('campCSVInput').value = '';
     document.getElementById('campStatusWrap').style.display = 'none';
     document.getElementById('campCorretoresWrap').style.display = '';
-    document.getElementById('campCSVWrap').style.display = '';
+    configurarCamposCSV('novo');
 
     const emps = await loadEmpreendimentos();
     const sel = document.getElementById('campEmpreendimento');
@@ -5377,10 +5375,7 @@
     document.getElementById('campModalTitle').textContent = 'Editar campanha';
     document.getElementById('campStatusWrap').style.display = '';
     document.getElementById('campCorretoresWrap').style.display = '';
-    document.getElementById('campCSVWrap').style.display = 'none';
-    document.getElementById('campEditCSVWrap').style.display = '';
-    document.getElementById('campEditCSVPreview').textContent = 'Clique ou arraste o novo arquivo aqui';
-    document.getElementById('campEditCSVInput').value = '';
+    configurarCamposCSV('edicao');
 
     const { data: c } = await supabaseClient.from('campanhas').select('*').eq('id', id).single();
     document.getElementById('campNome').value = c?.nome || '';
@@ -5624,6 +5619,21 @@
       : comOrigem
         ? `✓ ${n} leads importados · ⚠ origem só em ${comOrigem}`
         : `✓ ${n} leads importados · ⚠ sem origem: a 4ª coluna precisa ser a origem`;
+  }
+
+  // Os dois campos de import (novo x substituir) alimentam a mesma variável
+  // campanhaCsvLeads. Se sobrar um visível da abertura anterior, os dois
+  // aparecem juntos e vale o último arquivo carregado, sem aviso. Toda
+  // abertura passa por aqui e define o estado dos dois, nunca de um só.
+  function configurarCamposCSV(modo) {
+    const emEdicao = modo === 'edicao';
+    document.getElementById('campCSVWrap').style.display = emEdicao ? 'none' : '';
+    document.getElementById('campEditCSVWrap').style.display = emEdicao ? '' : 'none';
+    document.getElementById('campCSVPreview').textContent = 'Clique ou arraste o arquivo CSV aqui';
+    document.getElementById('campEditCSVPreview').textContent = 'Clique ou arraste o novo arquivo aqui';
+    document.getElementById('campCSVInput').value = '';
+    document.getElementById('campEditCSVInput').value = '';
+    campanhaCsvLeads = [];
   }
 
   function parseCampanhaCSV(text, previewId) {
