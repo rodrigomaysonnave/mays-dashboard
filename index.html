@@ -1394,19 +1394,19 @@
           <input type="url" id="campLpUrl" placeholder="https://...">
         </div>
         <div class="form-group" style="grid-column:1/-1">
-          <label>WhatsApp 1 — mensagem de resgate <span style="font-size:11px;color:var(--text-muted)">(opcional — preencha até 3; o sistema faz o rodízio entre os leads sozinho. Use <code>{nome}</code>, <code>{empreendimento}</code>, <code>{origem}</code> e <code>{link}</code>. <b>{origem}</b> é o empreendimento por onde aquele lead entrou, varia lead a lead)</span></label>
+          <label>WhatsApp 1 — mensagem de resgate <span style="font-size:11px;color:var(--text-muted)">(opcional — preencha até 3; o sistema faz o rodízio entre os leads sozinho. Use <code>{nome}</code>, <code>{empreendimento}</code>, <code>{origem}</code>, <code>{corretor}</code> e <code>{link}</code>. <b>{origem}</b> é o empreendimento por onde aquele lead entrou, varia lead a lead)</span></label>
           <textarea id="campMsgTemplate1" rows="2" style="margin-bottom:6px" placeholder="Modelo 1"></textarea>
           <textarea id="campMsgTemplate2" rows="2" style="margin-bottom:6px" placeholder="Modelo 2 (opcional)"></textarea>
           <textarea id="campMsgTemplate3" rows="2" placeholder="Modelo 3 (opcional)"></textarea>
         </div>
         <div class="form-group" style="grid-column:1/-1">
-          <label>WhatsApp 2 — conteúdo do empreendimento <span style="font-size:11px;color:var(--text-muted)">(opcional — a segunda mensagem, mandada depois que o lead respondeu que quer receber. Rodízio próprio, independente do WhatsApp 1. Mesmos placeholders)</span></label>
+          <label>WhatsApp 2 — conteúdo do empreendimento <span style="font-size:11px;color:var(--text-muted)">(opcional — a segunda mensagem, mandada depois que o lead respondeu que quer receber. Rodízio próprio, independente do WhatsApp 1. Mesmos placeholders, incluindo <code>{corretor}</code>)</span></label>
           <textarea id="campMsg2Template1" rows="2" style="margin-bottom:6px" placeholder="Modelo 1"></textarea>
           <textarea id="campMsg2Template2" rows="2" style="margin-bottom:6px" placeholder="Modelo 2 (opcional)"></textarea>
           <textarea id="campMsg2Template3" rows="2" placeholder="Modelo 3 (opcional)"></textarea>
         </div>
         <div class="form-group" style="grid-column:1/-1">
-          <label>Texto do botão "Enviar LP" <span style="font-size:11px;color:var(--text-muted)">(opcional — o link sempre vai junto, mesmo sem usar <code>{link}</code> no texto. Placeholders disponíveis: <code>{nome}</code>, <code>{empreendimento}</code>, <code>{origem}</code>, <code>{link}</code>)</span></label>
+          <label>Texto do botão "Enviar LP" <span style="font-size:11px;color:var(--text-muted)">(opcional — o link sempre vai junto, mesmo sem usar <code>{link}</code> no texto. Placeholders disponíveis: <code>{nome}</code>, <code>{empreendimento}</code>, <code>{origem}</code>, <code>{corretor}</code>, <code>{link}</code>)</span></label>
           <textarea id="campTextoLinkLp" rows="2" placeholder="Nesse site tem informações e imagens do empreendimento&#10;{link}"></textarea>
         </div>
         <div class="form-group" style="grid-column:1/-1">
@@ -4458,6 +4458,7 @@
       .replaceAll('{nome}', primeiroNome(lead.nome))
       .replaceAll('{empreendimento}', campanhaAtual?.vinculoNome || '')
       .replaceAll('{origem}', origemDoLead(lead))
+      .replaceAll('{corretor}', nomeDoCorretor())
       .replaceAll('{link}', linkComRastreio(lead.id));
   }
 
@@ -4466,6 +4467,13 @@
   // campanha — assim campanhas antigas seguem funcionando sem ajuste.
   function origemDoLead(lead) {
     return lead?.origem || campanhaAtual?.vinculoNome || '';
+  }
+
+  // {corretor} é quem está mandando: o WhatsApp abre no aparelho da pessoa
+  // logada, então é sempre o nome dela que deve assinar. Resolve na hora do
+  // envio, e não na campanha, porque a mesma campanha tem vários corretores.
+  function nomeDoCorretor() {
+    return primeiroNome(currentProfile?.nome || '');
   }
 
   // Todo link de WhatsApp é montado como wa.me/55 + telefone, então o número
@@ -4496,6 +4504,7 @@
       .replaceAll('{nome}', primeiroNome(lead.nome))
       .replaceAll('{empreendimento}', campanhaAtual?.vinculoNome || '')
       .replaceAll('{origem}', origemDoLead(lead))
+      .replaceAll('{corretor}', nomeDoCorretor())
       .replaceAll('{link}', linkComRastreio(lead.id));
   }
 
@@ -4509,7 +4518,8 @@
     const texto = tpl
       .replaceAll('{nome}', primeiroNome(lead.nome))
       .replaceAll('{empreendimento}', campanhaAtual?.vinculoNome || '')
-      .replaceAll('{origem}', origemDoLead(lead));
+      .replaceAll('{origem}', origemDoLead(lead))
+      .replaceAll('{corretor}', nomeDoCorretor());
     return texto.includes('{link}')
       ? texto.replaceAll('{link}', link)
       : (texto.trim() ? `${texto}\n${link}` : link);
