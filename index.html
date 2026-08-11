@@ -1097,7 +1097,7 @@
     <h1>Maysonnave Imóveis</h1>
     <p>Dashboard operacional</p>
   </div>
-  <div id="appVersionBadge" title="Versão do Dashboard" style="font-size:11px;color:var(--text-muted);opacity:0.7;border:1px solid var(--border);border-radius:20px;padding:2px 9px;margin-left:10px;user-select:none;">v3.4</div>
+  <div id="appVersionBadge" title="Versão do Dashboard" style="font-size:11px;color:var(--text-muted);opacity:0.7;border:1px solid var(--border);border-radius:20px;padding:2px 9px;margin-left:10px;user-select:none;">v3.5</div>
   <div style="flex:1"></div>
   <div id="headerUserInfo" style="font-size:12px;color:var(--text-muted);margin-right:12px"></div>
   <button class="btn btn-ghost" id="btnLogout">Sair</button>
@@ -2633,33 +2633,92 @@
   }
 
   // ── Photo handling ────────────────────────────────────────────
+  // As fotos ficavam em base64 dentro do Postgres: cada uma ocupava ~330KB no
+  // banco (base64 infla 33%) e vinha junto em toda listagem, o que deixava o
+  // Dashboard lento e enchia os 500MB do plano. Agora vão pro bucket 'imagens'
+  // do Storage, servido por CDN, e o banco guarda só a URL.
+  // As colunas não mudaram: <img src> aceita data: e https: igual, então foto
+  // antiga em base64 continua aparecendo normalmente até ser convertida.
+  // Ver supabase_migration_30_fotos_no_storage.sql.
+  const STORAGE_BUCKET = 'imagens';
+  const SUFIXO_THUMB = '_thumb';
+
   const pendingPhotos = { fachada: null, croqui: null };
 
-  function handlePhoto(input, slot) {
+  async function handlePhoto(input, slot) {
     const file = input.files[0];
     if (!file) return;
-    resizeImage(file, 1400, 0.8).then(b64 => {
-      pendingPhotos[slot] = b64;
-      showPhotoPreview(slot, b64);
-    });
+    const placeholder = 'placeholder' + (slot === 'fachada' ? 'Fachada' : 'Croqui');
+    try {
+      const url = await comStatusDeEnvio(placeholder, () =>
+        uploadImagem(file, 'imoveis', { maxW: 1400, quality: 0.8, thumbW: 600 }));
+      pendingPhotos[slot] = url;
+      showPhotoPreview(slot, url);
+    } catch (e) {
+      alert('Não consegui enviar a foto: ' + e.message + '\n\nConfira a conexão e tente de novo.');
+      input.value = '';
+    }
   }
 
-  function resizeImage(file, maxW, quality) {
-    return new Promise(resolve => {
+  // Redimensiona no navegador e devolve um Blob JPEG (antes devolvia base64).
+  function resizeImageBlob(file, maxW, quality) {
+    return new Promise((resolve, reject) => {
       const img = new Image();
       const url = URL.createObjectURL(file);
       img.onload = () => {
         URL.revokeObjectURL(url);
         const ratio = Math.min(1, maxW / img.width);
-        const w = Math.round(img.width * ratio);
-        const h = Math.round(img.height * ratio);
         const canvas = document.createElement('canvas');
-        canvas.width = w; canvas.height = h;
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL('image/jpeg', quality));
+        canvas.width = Math.round(img.width * ratio);
+        canvas.height = Math.round(img.height * ratio);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(
+          b => b ? resolve(b) : reject(new Error('não consegui gerar o JPEG')),
+          'image/jpeg', quality);
       };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('o arquivo não é uma imagem válida')); };
       img.src = url;
     });
+  }
+
+  // Sobe a imagem e devolve a URL pública. Quando thumbW é informado, sobe
+  // também uma miniatura com o mesmo nome + '_thumb', pra grade de cards e pra
+  // vitrine pública não precisarem baixar a foto inteira. Guardar as duas sob o
+  // mesmo nome evita ter que criar uma segunda coluna pra miniatura: dá pra
+  // derivar uma da outra com thumbUrl().
+  async function uploadImagem(file, pasta, { maxW = 1400, quality = 0.8, thumbW = null } = {}) {
+    const base = `${pasta}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const envios = [{ caminho: `${base}.jpg`, blob: await resizeImageBlob(file, maxW, quality) }];
+    if (thumbW) {
+      envios.push({ caminho: `${base}${SUFIXO_THUMB}.jpg`, blob: await resizeImageBlob(file, thumbW, 0.7) });
+    }
+    for (const { caminho, blob } of envios) {
+      const { error } = await supabaseClient.storage.from(STORAGE_BUCKET)
+        .upload(caminho, blob, { contentType: 'image/jpeg', cacheControl: '31536000', upsert: false });
+      if (error) throw new Error(error.message);
+    }
+    return supabaseClient.storage.from(STORAGE_BUCKET).getPublicUrl(`${base}.jpg`).data.publicUrl;
+  }
+
+  // Caminho da miniatura. Foto antiga em base64 e qualquer URL fora do padrão
+  // voltam inalteradas, então usar isso nunca quebra uma imagem.
+  function thumbUrl(url) {
+    if (!url || !url.startsWith('http') || !url.endsWith('.jpg')) return url;
+    return url.slice(0, -4) + SUFIXO_THUMB + '.jpg';
+  }
+
+  // O upload agora passa pela rede: sem isso a zona fica muda por segundos e
+  // parece travada. Troca o texto do placeholder enquanto envia e devolve o
+  // original no fim, mesmo se der erro.
+  async function comStatusDeEnvio(placeholderId, fn) {
+    const span = document.querySelector('#' + placeholderId + ' span');
+    const original = span ? span.textContent : null;
+    if (span) span.textContent = 'Enviando...';
+    try {
+      return await fn();
+    } finally {
+      if (span) span.textContent = original;
+    }
   }
 
   function showPhotoPreview(slot, b64) {
@@ -3208,9 +3267,41 @@
   });
 
   // ── Image cover crop (canvas-level, avoids html2canvas object-fit issues) ──
+  // Baixa a imagem e devolve embutida como data URI.
+  //
+  // Desde que as fotos saíram do banco, elas são URLs externas, e desenhar URL
+  // externa em canvas esbarra em CORS. Marcar a <img> com crossOrigin não basta:
+  // se o navegador já tem aquela foto em cache de um <img> comum da tela (e tem,
+  // porque a ficha do imóvel mostra a fachada), o pedido com crossOrigin bate no
+  // cache "sem CORS" e falha, ou pior, fica pendente — foi o que travou a
+  // exportação em JPG no primeiro teste.
+  //
+  // Baixar por fetch e embutir resolve de vez: o canvas volta a ver só data:,
+  // exatamente como era quando as fotos moravam no banco.
+  async function urlParaDataUri(url) {
+    if (!url || !url.startsWith('http')) return url;
+    try {
+      const r = await fetch(url, { mode: 'cors' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const blob = await r.blob();
+      return await new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(fr.result);
+        fr.onerror = () => reject(new Error('não consegui ler a imagem baixada'));
+        fr.readAsDataURL(blob);
+      });
+    } catch (e) {
+      console.warn('Não consegui embutir a imagem, seguindo com a URL:', url, e);
+      return url;   // no pior caso ela sai em branco no JPG, mas não trava nada
+    }
+  }
+
   function cropImageCover(src, targetW, targetH) {
     return new Promise(resolve => {
       const img = new Image();
+      // Aqui o src já vem embutido por urlParaDataUri(). O crossOrigin fica só
+      // como rede de segurança pro caso de uma URL escapar.
+      if (src && src.startsWith('http')) img.crossOrigin = 'anonymous';
       img.onload = () => {
         const cvs = document.createElement('canvas');
         cvs.width = targetW; cvs.height = targetH;
@@ -3221,6 +3312,10 @@
         ctx.drawImage(img, (targetW - sw) / 2, (targetH - sh) / 2, sw, sh);
         resolve(cvs.toDataURL('image/jpeg', 0.9));
       };
+      // Sem isso, uma foto que não carrega deixava a promise pendente pra
+      // sempre e a exportação ficava travada em "Gerando...". Devolve a
+      // original: no pior caso o corte sai imperfeito, mas o JPG sai.
+      img.onerror = () => resolve(src);
       img.src = src;
     });
   }
@@ -3234,19 +3329,34 @@
     if (!item) throw new Error('Imóvel não encontrado.');
 
     const tpl = document.getElementById('pdfTemplate');
+    // As duas fotos são embutidas ANTES de montar o template. Enquanto elas
+    // moravam no banco isso era automático (já eram base64); agora que vêm do
+    // Storage, sem embutir o html2canvas trava tentando buscá-las.
     // Pre-crop fachada to exact dimensions on canvas — avoids html2canvas object-fit distortion
     const processedItem = { ...item };
     if (item.fotoFachada) {
-      processedItem.fotoFachada = await cropImageCover(item.fotoFachada, 1080, 480);
+      processedItem.fotoFachada = await cropImageCover(await urlParaDataUri(item.fotoFachada), 1080, 480);
+    }
+    if (item.fotoCroqui) {
+      processedItem.fotoCroqui = await urlParaDataUri(item.fotoCroqui);
     }
     tpl.innerHTML = buildPDFContent(processedItem);
     tpl.style.display = 'block';
     await new Promise(r => setTimeout(r, 400));
     try {
-      const canvas = await html2canvas(tpl, {
-        scale: 2, useCORS: true, allowTaint: true, logging: false,
-        backgroundColor: '#ffffff', width: 1080, windowWidth: 1200,
-      });
+      // allowTaint continua false: se alguma imagem escapar sem ser embutida,
+      // é melhor ela sair em branco do que contaminar o canvas e derrubar o
+      // toBlob logo abaixo, que mataria a exportação inteira.
+      // O prazo máximo existe pra garantir que o botão nunca mais fique preso
+      // em "Gerando..." — com erro na tela dá pra agir, travado não.
+      const canvas = await Promise.race([
+        html2canvas(tpl, {
+          scale: 2, useCORS: true, allowTaint: false, logging: false,
+          backgroundColor: '#ffffff', width: 1080, windowWidth: 1200,
+        }),
+        new Promise((_, reject) => setTimeout(
+          () => reject(new Error('a geração passou de 30 segundos e foi interrompida. Tente de novo.')), 30000)),
+      ]);
       const blob = await new Promise((resolve, reject) =>
         canvas.toBlob(b => b ? resolve(b) : reject(new Error('Falha ao gerar a imagem.')), 'image/jpeg', 0.92));
       return blob;
@@ -3621,23 +3731,35 @@
   // ── Empreendimentos: galeria de fotos (carrossel na LP) ────────
   let currentGaleriaFotos = [];
   function renderGaleriaPreview() {
-    document.getElementById('galeriaPreviewGrid').innerHTML = currentGaleriaFotos.map((b64, i) => `
+    document.getElementById('galeriaPreviewGrid').innerHTML = currentGaleriaFotos.map((url, i) => `
       <div class="gallery-item">
-        <img src="${b64}" alt="Foto ${i + 1}">
+        <img src="${url}" alt="Foto ${i + 1}" loading="lazy">
         <button type="button" class="gallery-item-remove" onclick="removeGaleriaFoto(${i})">&times;</button>
       </div>`).join('');
   }
   function removeGaleriaFoto(i) {
+    // Só tira da lista: o arquivo continua no Storage até alguém limpar.
+    // Apagar aqui seria pior — se o Rodrigo fechar o modal sem salvar, o
+    // empreendimento voltaria a apontar pra uma foto que não existe mais.
     currentGaleriaFotos.splice(i, 1);
     renderGaleriaPreview();
   }
   async function handleGaleriaEmpreendimento(input) {
     const files = Array.from(input.files || []);
-    for (const file of files) {
-      const b64 = await resizeImage(file, 1400, 0.8);
-      currentGaleriaFotos.push(b64);
+    const span = document.querySelector('#placeholderEmpreendimentoGaleria span');
+    const original = span ? span.textContent : null;
+    const falhas = [];
+    for (let i = 0; i < files.length; i++) {
+      if (span) span.textContent = `Enviando ${i + 1} de ${files.length}...`;
+      try {
+        currentGaleriaFotos.push(await uploadImagem(files[i], 'empreendimentos', { maxW: 1400, quality: 0.8, thumbW: 600 }));
+        renderGaleriaPreview();   // aparece uma a uma, em vez de tudo só no fim
+      } catch (e) {
+        falhas.push(`${files[i].name}: ${e.message}`);
+      }
     }
-    renderGaleriaPreview();
+    if (span) span.textContent = original;
+    if (falhas.length) alert('Não consegui enviar estas fotos:\n\n' + falhas.join('\n'));
     input.value = '';
   }
   function carouselScroll(trackId, dir) {
@@ -3648,13 +3770,18 @@
 
   // ── Construtoras: logo ──────────────────────────────────────────
   let pendingLogoConstrutora = null;
-  function handlePhotoConstrutora(input) {
+  async function handlePhotoConstrutora(input) {
     const file = input.files[0];
     if (!file) return;
-    resizeImage(file, 800, 0.85).then(b64 => {
-      pendingLogoConstrutora = b64;
-      showConstrutoraLogoPreview(b64);
-    });
+    try {
+      const url = await comStatusDeEnvio('placeholderConstrutoraLogo', () =>
+        uploadImagem(file, 'construtoras', { maxW: 800, quality: 0.85 }));
+      pendingLogoConstrutora = url;
+      showConstrutoraLogoPreview(url);
+    } catch (e) {
+      alert('Não consegui enviar o logo: ' + e.message);
+      input.value = '';
+    }
   }
   function showConstrutoraLogoPreview(b64) {
     const zone = document.getElementById('zoneConstrutoraLogo');
@@ -4096,7 +4223,7 @@
   let editandoAnotacaoIdx  = null;
 
   let campanhaCsvLeads = [];
-  let campImagemB64 = null;  // imagem da primeira mensagem (base64), campanha em criação/edição
+  let campImagemUrl = null;  // URL da imagem da primeira mensagem, campanha em criação/edição
 
   const campClassifLabel = {
     contatado:       'Contatado',
@@ -4720,9 +4847,13 @@
 
   // wa.me só aceita texto — a imagem da 1ª mensagem vai pela área de
   // transferência, o corretor cola (Ctrl+V) na conversa que abre.
-  function imagemParaBlobPNG(dataUri) {
+  async function imagemParaBlobPNG(origem) {
+    // Mesma história da exportação em JPG: a imagem da campanha agora vem do
+    // Storage, e desenhar URL externa em canvas quebra por CORS. Embute antes.
+    const dataUri = await urlParaDataUri(origem);
     return new Promise((resolve, reject) => {
       const img = new Image();
+      if (dataUri && dataUri.startsWith('http')) img.crossOrigin = 'anonymous';
       img.onload = () => {
         const canvas = document.createElement('canvas');
         canvas.width = img.width; canvas.height = img.height;
@@ -5395,19 +5526,22 @@
       btn.className = 'photo-clear';
       btn.type = 'button';
       btn.textContent = '×';
-      btn.onclick = (e) => { e.stopPropagation(); campImagemB64 = null; mostrarPreviewCampImagem(null); };
+      btn.onclick = (e) => { e.stopPropagation(); campImagemUrl = null; mostrarPreviewCampImagem(null); };
       zone.appendChild(btn);
     } else {
       placeholder.style.display = '';
     }
   }
 
-  function handleCampImagemFile(file) {
+  async function handleCampImagemFile(file) {
     if (!file) return;
-    resizeImage(file, 1000, 0.8).then(b64 => {
-      campImagemB64 = b64;
-      mostrarPreviewCampImagem(b64);
-    });
+    try {
+      campImagemUrl = await comStatusDeEnvio('campImagemPlaceholder', () =>
+        uploadImagem(file, 'campanhas', { maxW: 1000, quality: 0.8 }));
+      mostrarPreviewCampImagem(campImagemUrl);
+    } catch (e) {
+      alert('Não consegui enviar a imagem: ' + e.message);
+    }
   }
 
   document.getElementById('campImagemInput').addEventListener('change', function() {
@@ -5424,7 +5558,7 @@
   async function openCampanhaModal() {
     editingCampanhaId = null;
     campanhaCsvLeads = [];
-    campImagemB64 = null;
+    campImagemUrl = null;
     mostrarPreviewCampImagem(null);
     document.getElementById('campModalTitle').textContent = 'Nova campanha';
     document.getElementById('campNome').value = '';
@@ -5506,8 +5640,8 @@
     document.getElementById('campMsg2Template3').value = c.msg2_template_3 || '';
     document.getElementById('campTextoLinkLp').value = c.texto_link_lp || '';
     document.getElementById('campContextoAgente').value = c.contexto_agente || '';
-    campImagemB64 = c.imagem_primeira_msg || null;
-    mostrarPreviewCampImagem(campImagemB64);
+    campImagemUrl = c.imagem_primeira_msg || null;
+    mostrarPreviewCampImagem(campImagemUrl);
     document.querySelectorAll('.corretor-check').forEach(chk => {
       chk.checked = corretorIds.includes(chk.value);
     });
@@ -5534,8 +5668,8 @@
     document.getElementById('campMsg2Template3').value = c?.msg2_template_3 || '';
     document.getElementById('campTextoLinkLp').value = c?.texto_link_lp || '';
     document.getElementById('campContextoAgente').value = c?.contexto_agente || '';
-    campImagemB64 = c?.imagem_primeira_msg || null;
-    mostrarPreviewCampImagem(campImagemB64);
+    campImagemUrl = c?.imagem_primeira_msg || null;
+    mostrarPreviewCampImagem(campImagemUrl);
 
     // Corretores atuais da campanha — marcados nos checkboxes, editáveis pelo admin.
     // Trocar a seleção aqui transfere os leads do corretor removido pro(s) que entraram
@@ -5667,7 +5801,7 @@
           nome, empreendimento_id: empId, imovel_id: imovelId, status, meta_atendimento: metaAtendimento,
           lp_url: lpUrl, msg_template_1: msgTemplate1, msg_template_2: msgTemplate2, msg_template_3: msgTemplate3,
           msg2_template_1: msg2Template1, msg2_template_2: msg2Template2, msg2_template_3: msg2Template3,
-      texto_link_lp: textoLinkLp, imagem_primeira_msg: campImagemB64, contexto_agente: contextoAgente,
+      texto_link_lp: textoLinkLp, imagem_primeira_msg: campImagemUrl, contexto_agente: contextoAgente,
         })
         .eq('id', editingCampanhaId);
       if (error) { alert('Erro ao atualizar campanha: ' + error.message); return; }
@@ -5686,7 +5820,7 @@
       nome, empreendimento_id: empId, imovel_id: imovelId, created_by: currentUser.id, meta_atendimento: metaAtendimento,
       lp_url: lpUrl, msg_template_1: msgTemplate1, msg_template_2: msgTemplate2, msg_template_3: msgTemplate3,
       msg2_template_1: msg2Template1, msg2_template_2: msg2Template2, msg2_template_3: msg2Template3,
-      texto_link_lp: textoLinkLp, imagem_primeira_msg: campImagemB64, contexto_agente: contextoAgente,
+      texto_link_lp: textoLinkLp, imagem_primeira_msg: campImagemUrl, contexto_agente: contextoAgente,
     }).select('id').single();
     if (error) { alert('Erro ao criar campanha: ' + error.message); return; }
 
