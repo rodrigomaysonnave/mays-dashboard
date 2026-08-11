@@ -5668,6 +5668,55 @@
     if (file) lerArquivoLeads(file, 'campEditCSVPreview');
   });
 
+  // ── Leitura de lista de leads: cabeçalho manda, posição é só o plano B ──
+  // A ordem esperada é nome,telefone,email,origem. Planilha com as colunas
+  // em outra ordem (ex.: Nome,Email,Telefone) fazia o leitor pegar o e-mail
+  // como telefone e extrair os dígitos de dentro do endereço: um lead com
+  // telefone "21" entrava como válido. Agora, quando há cabeçalho, cada
+  // coluna é encontrada pelo nome, e todo telefone passa por validação.
+  const COLUNAS_LEAD = {
+    nome:     /^(nome|name|contato|cliente)/i,
+    telefone: /^(telefone|tel|celular|fone|whats|phone)/i,
+    email:    /^(e-?mail)/i,
+    origem:   /^(origem|fonte|source)/i,
+  };
+  function mapearColunasLead(celulas) {
+    const idx = {};
+    celulas.forEach((c, i) => {
+      const txt = String(c || '').trim();
+      for (const [campo, re] of Object.entries(COLUNAS_LEAD)) {
+        if (idx[campo] === undefined && re.test(txt)) idx[campo] = i;
+      }
+    });
+    // só vale como cabeçalho se achou pelo menos nome e telefone
+    return (idx.nome !== undefined && idx.telefone !== undefined) ? idx : null;
+  }
+  // Telefone brasileiro: 10 ou 11 dígitos (DDD + número), ou 12/13 com o 55.
+  // Barra sequência repetida (99999999999), que é lixo de cadastro.
+  function telefoneLeadValido(d) {
+    if (!/^\d{10,13}$/.test(d)) return false;
+    if (d.length > 11 && !d.startsWith('55')) return false;
+    return !/^(\d)\1+$/.test(d.length > 11 ? d.slice(2) : d);
+  }
+  // Recebe as linhas já em array de células e monta campanhaCsvLeads.
+  function montarLeadsDeLinhas(linhas, previewId, dicaVazio) {
+    campanhaCsvLeads = [];
+    let descartados = 0;
+    const mapa = linhas.length ? mapearColunasLead(linhas[0]) : null;
+    const pos = mapa || { nome: 0, telefone: 1, email: 2, origem: 3 };
+    linhas.forEach((cels, i) => {
+      if (i === 0 && mapa) return;                                  // pula o cabeçalho
+      const pega = c => (c === undefined ? '' : String(cels[c] ?? '').trim());
+      const nome = pega(pos.nome);
+      const telefone = pega(pos.telefone).replace(/\D/g, '');
+      if (!nome && !telefone) return;                                // linha em branco
+      if (i === 0 && !mapa && /nome|telefone|phone|contato/i.test(nome)) return;
+      if (!nome || !telefoneLeadValido(telefone)) { descartados++; return; }
+      campanhaCsvLeads.push({ nome, telefone, email: pega(pos.email), origem: pega(pos.origem) });
+    });
+    previewImportLeads(previewId, dicaVazio, descartados, !!mapa);
+  }
+
   function parseCampanhaXLSX(arrayBuffer, previewId) {
     if (typeof XLSX === 'undefined') {
       document.getElementById(previewId).textContent = '⚠ Biblioteca XLSX não carregou. Verifique a conexão e recarregue a página.';
@@ -5677,20 +5726,7 @@
       const wb = XLSX.read(arrayBuffer, { type: 'array' });
       const ws = wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-      campanhaCsvLeads = [];
-      rows.forEach((row, i) => {
-        const col0 = String(row[0] || '').trim();
-        const col1 = String(row[1] || '').trim();
-        const col2 = String(row[2] || '').trim();
-        const col3 = String(row[3] || '').trim();
-        if (i === 0 && /nome|telefone|phone|contato/i.test(col0)) return;
-        const nome = col0;
-        const telefone = col1.replace(/\D/g, '');
-        const email = col2;
-        const origem = col3;
-        if (nome && telefone) campanhaCsvLeads.push({ nome, telefone, email, origem });
-      });
-      previewImportLeads(previewId, '⚠ Nenhum lead válido. Coluna A = nome, Coluna B = telefone');
+      montarLeadsDeLinhas(rows, previewId, '⚠ Nenhum lead válido. Precisa das colunas nome e telefone');
     } catch(e) {
       document.getElementById(previewId).textContent = '⚠ Erro ao ler o arquivo: ' + e.message;
     }
@@ -5699,16 +5735,29 @@
   // Preview do import: além de contar leads, diz se a 4ª coluna trouxe origem.
   // Sem isso o erro de coluna trocada só aparecia depois de salvar e mandar a
   // mensagem pro lead com o empreendimento errado.
-  function previewImportLeads(previewId, dica) {
+  function previewImportLeads(previewId, dica, descartados = 0, achouCabecalho = false) {
     const el = document.getElementById(previewId);
     const n = campanhaCsvLeads.length;
-    if (!n) { el.textContent = dica; return; }
+    if (!n) {
+      el.textContent = descartados
+        ? `⚠ Nenhum lead válido: ${descartados} linhas sem telefone reconhecível. Confira se a coluna de telefone é a certa`
+        : dica;
+      return;
+    }
+    const partes = [`✓ ${n} leads importados`];
+    // Descarte alto quase sempre é coluna trocada, não lista ruim. Avisar aqui
+    // evita salvar uma substituição que apaga a lista boa e grava lixo.
+    if (descartados) {
+      const grave = descartados > n * 0.2;
+      partes.push(`${grave ? '⚠⚠' : '⚠'} ${descartados} linhas descartadas por telefone inválido` +
+                  (grave ? ' — confira se a coluna de telefone é a certa antes de salvar' : ''));
+    }
+    if (!achouCabecalho) partes.push('ordem por posição: nome, telefone, email, origem');
     const comOrigem = campanhaCsvLeads.filter(l => (l.origem || '').trim()).length;
-    el.textContent = comOrigem === n
-      ? `✓ ${n} leads importados · origem lida nos ${n}`
-      : comOrigem
-        ? `✓ ${n} leads importados · ⚠ origem só em ${comOrigem}`
-        : `✓ ${n} leads importados · ⚠ sem origem: a 4ª coluna precisa ser a origem`;
+    partes.push(comOrigem === n ? `origem lida nos ${n}`
+      : comOrigem ? `⚠ origem só em ${comOrigem}`
+      : '⚠ sem origem: a 4ª coluna precisa ser a origem');
+    el.textContent = partes.join(' · ');
   }
 
   // Os dois campos de import (novo x substituir) alimentam a mesma variável
@@ -5726,19 +5775,26 @@
     campanhaCsvLeads = [];
   }
 
+  // Split que respeita aspas: nome com vírgula ("Silva, João") quebrava a
+  // linha inteira e jogava o telefone pra coluna errada.
+  function separarCamposCSV(linha) {
+    const campos = []; let atual = ''; let dentroDeAspas = false;
+    for (let i = 0; i < linha.length; i++) {
+      const c = linha[i];
+      if (c === '"') {
+        if (dentroDeAspas && linha[i + 1] === '"') { atual += '"'; i++; }
+        else dentroDeAspas = !dentroDeAspas;
+      } else if (c === ',' && !dentroDeAspas) { campos.push(atual); atual = ''; }
+      else atual += c;
+    }
+    campos.push(atual);
+    return campos.map(c => c.trim());
+  }
+
   function parseCampanhaCSV(text, previewId) {
-    const lines = text.split(/\r?\n/).filter(l => l.trim());
-    campanhaCsvLeads = [];
-    lines.forEach((line, i) => {
-      if (i === 0 && /nome|telefone|phone/i.test(line)) return;
-      const parts = line.split(',');
-      const nome = (parts[0] || '').replace(/^"|"$/g,'').trim();
-      const telefone = (parts[1] || '').replace(/^"|"$/g,'').trim().replace(/\D/g,'');
-      const email = (parts[2] || '').replace(/^"|"$/g,'').trim();
-      const origem = (parts[3] || '').replace(/^"|"$/g,'').trim();
-      if (nome && telefone) campanhaCsvLeads.push({ nome, telefone, email, origem });
-    });
-    previewImportLeads(previewId, '⚠ Nenhum lead válido. Formato: nome,telefone,email,origem');
+    const linhas = text.replace(/^﻿/, '').split(/\r?\n/).filter(l => l.trim());
+    montarLeadsDeLinhas(linhas.map(separarCamposCSV), previewId,
+      '⚠ Nenhum lead válido. Formato: nome,telefone,email,origem');
   }
 
   function lerArquivoLeads(file, previewId) {
