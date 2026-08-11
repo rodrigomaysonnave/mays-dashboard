@@ -1097,7 +1097,7 @@
     <h1>Maysonnave Imóveis</h1>
     <p>Dashboard operacional</p>
   </div>
-  <div id="appVersionBadge" title="Versão do Dashboard" style="font-size:11px;color:var(--text-muted);opacity:0.7;border:1px solid var(--border);border-radius:20px;padding:2px 9px;margin-left:10px;user-select:none;">v3.5</div>
+  <div id="appVersionBadge" title="Versão do Dashboard" style="font-size:11px;color:var(--text-muted);opacity:0.7;border:1px solid var(--border);border-radius:20px;padding:2px 9px;margin-left:10px;user-select:none;">v3.6</div>
   <div style="flex:1"></div>
   <div id="headerUserInfo" style="font-size:12px;color:var(--text-muted);margin-right:12px"></div>
   <button class="btn btn-ghost" id="btnLogout">Sair</button>
@@ -1880,8 +1880,12 @@
         <div class="form-group full">
           <label class="checkbox-field">
             <input type="checkbox" id="fApenasPessoal">
-            <span>Apresentação pessoal — não enviar digital</span>
+            <span>Apresentação pessoal: não enviar digital</span>
           </label>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:5px;padding-left:26px;line-height:1.5">
+            Avisa antes de mandar o JPG por WhatsApp. O imóvel continua aparecendo
+            normalmente no Radar Global para os outros corretores.
+          </div>
         </div>
 
         <!-- ── Radar de Oportunidades (atributos estruturados) ── -->
@@ -2776,12 +2780,21 @@
     const ofertas = await loadOfertas();
     const vendidoIds = new Set(ofertas.filter(o => o.estagio === 'fechado').map(o => o.imovelId));
 
-    // Meu Radar: só os meus, sem os vendidos. Radar Global: dos demais corretores, sem "apenas pessoal" e sem vendidos.
-    // Vendido: só os meus que têm oferta fechada.
+    // Admin enxerga tudo: nenhum imóvel da equipe fica escondido dele, seja de
+    // quem for e esteja marcado como for.
+    const souAdmin = !!(currentProfile && currentProfile.role === 'admin');
+
+    // Meu Radar: só os meus, sem os vendidos.
+    // Radar Global: dos demais corretores, sem os vendidos — e, pro admin, todos.
+    //   "Apresentação pessoal" NÃO esconde daqui: a marcação diz respeito a não
+    //   enviar o JPG por WhatsApp, não a privacidade. Ela escondia o imóvel do
+    //   Radar Global por engano, e em 11/08/2026 um imóvel do Marcos sumiu pra
+    //   equipe inteira por causa disso.
+    // Vendido: os que têm oferta fechada, meus — e, pro admin, de todo mundo.
     const data = isVendido
-      ? all.filter(d => d.createdBy === me && vendidoIds.has(d.id))
+      ? all.filter(d => (souAdmin || d.createdBy === me) && vendidoIds.has(d.id))
       : isGlobal
-        ? all.filter(d => d.createdBy !== me && !d.apenasPessoal && !vendidoIds.has(d.id))
+        ? all.filter(d => (souAdmin || d.createdBy !== me) && !vendidoIds.has(d.id))
         : all.filter(d => d.createdBy === me && !vendidoIds.has(d.id));
 
     renderStats(data);
@@ -2791,7 +2804,7 @@
     document.getElementById('radarMeta').textContent = isVendido
       ? 'Imóveis com oferta fechada'
       : isGlobal
-        ? 'Imóveis cadastrados pelos demais corretores'
+        ? (souAdmin ? 'Todos os imóveis cadastrados na equipe' : 'Imóveis cadastrados pelos demais corretores')
         : 'Imóveis que você cadastrou';
     document.getElementById('btnAdd').style.display = (isGlobal || isVendido) ? 'none' : '';
 
@@ -2896,7 +2909,7 @@
     document.getElementById('drawerPessoalNotice').innerHTML = item.apenasPessoal
       ? `<div class="drawer-pessoal-notice">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="2" y="6" width="10" height="7" rx="1.2" stroke="currentColor" stroke-width="1.3"/><path d="M4.5 6V4.5a2.5 2.5 0 015 0V6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-          Apresentação pessoal — não enviar digital
+          Apresentação pessoal: não enviar digital
         </div>`
       : '';
     document.getElementById('drawerBadges').innerHTML = `
@@ -6942,8 +6955,10 @@
     const listEl = document.getElementById('clientDrawerMatches');
     const countEl = document.getElementById('clientDrawerMatchCount');
     if (!item.radarAtivo || !item.radar) { section.style.display = 'none'; return; }
-    const me = currentUser && currentUser.id;
-    const pool = (await loadData()).filter(im => im.createdBy === me || !im.apenasPessoal);
+    // Todos os imóveis entram na sugestão pro cliente. "Apresentação pessoal"
+    // não exclui daqui: ela só define que o imóvel é apresentado ao vivo em vez
+    // de ir por WhatsApp, e continua sendo um imóvel que serve pro cliente.
+    const pool = await loadData();
     const scored = pool.map(im => ({ im, ...scoreMatch(im, item.radar) }))
       .filter(x => x.score >= 40)
       .sort((a, b) => b.score - a.score)
@@ -7345,6 +7360,17 @@
       if (!res) return;
       const cliente = (await loadClientes()).find(c => c.id === res.clienteId);
       const item    = await loadImovelById(res.imovelId);
+      // É exatamente isto que "apresentação pessoal" quer dizer: mostrar ao
+      // vivo em vez de mandar o JPG. Até 11/08/2026 a marcação não travava
+      // envio nenhum, só escondia o imóvel do Radar Global, que era o oposto
+      // da intenção. A oferta já está salva aqui, então só o envio para.
+      if (item && item.apenasPessoal && !confirm(
+        `"${item.endereco}" está marcado como apresentação pessoal, pra ser mostrado ao vivo em vez de enviado.\n\n` +
+        `A oferta já foi salva. Enviar o JPG por WhatsApp mesmo assim?`)) {
+        closeOfertaModal();
+        await refreshAfterOferta();
+        return;
+      }
       const blob = await generateImovelJpgBlob(item);
       await shareViaWhatsApp({
         blob,
