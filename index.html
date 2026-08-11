@@ -419,8 +419,33 @@
 
     /* ── Mobile responsivo ──────────────────────────────────────── */
     @media (max-width: 768px) {
-      .header { padding: 0 12px; }
-      .header-title { font-size: 13px; }
+      /* O header ocupava 240px de uma tela de 844: título em duas linhas e
+         "Nome · Admin" em três. As regras antigas miravam .header/.header-title,
+         classes que não existem no markup (o elemento é <header> puro), então
+         nunca valeram. Aqui ele vira uma faixa de uma linha só. */
+      header { padding: 10px 12px; gap: 8px; }
+      .logo-mark { width: 28px; height: 28px; font-size: 12px; flex-shrink: 0; }
+      .header-text { min-width: 0; }
+      .header-text h1 { font-size: 13px; line-height: 1.2; white-space: nowrap; }
+      .header-text p  { display: none; }
+      #appVersionBadge { display: none; }
+      /* Nome do usuário corta com reticências em vez de empurrar o botão Sair */
+      #headerUserInfo {
+        margin-right: 6px; max-width: 34vw; white-space: nowrap;
+        overflow: hidden; text-overflow: ellipsis;
+      }
+      #btnLogout { flex-shrink: 0; padding: 6px 12px; font-size: 12px; }
+
+      /* Chips de filtro: com "Pipeline" e as abas de campanha a fila passou da
+         largura da tela e, como o html tem overflow-x:hidden, o último chip
+         ficava cortado e inalcançável. Agora cada grupo rola sozinho. */
+      .section-actions { width: 100%; gap: 8px; }
+      .filter-group {
+        max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch;
+        padding-bottom: 2px; scrollbar-width: none;
+      }
+      .filter-group::-webkit-scrollbar { display: none; }
+      .filter-btn { flex-shrink: 0; white-space: nowrap; }
       .view-tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; gap: 4px; margin-bottom: 16px; }
       .view-tabs::-webkit-scrollbar { display: none; }
       .view-tab { white-space: nowrap; flex-shrink: 0; font-size: 12px; padding: 6px 10px; }
@@ -442,7 +467,18 @@
       .nova-anotacao-ok { width: 100%; align-self: stretch; padding: 12px; font-size: 14px; }
       .lead-list-panel.hidden-mobile { display: none; }
       .lead-list-panel.hidden-mobile ~ .lead-detail-panel { display: block; }
-      .campanha-progress-header { flex-wrap: wrap; gap: 8px; padding: 8px 12px; }
+      /* O cabeçalho da campanha ocupava ~390px de uma tela de 844: quase
+         metade do celular antes de aparecer o primeiro lead. Compacta os
+         botões secundários e o bloco de título sem esconder nada. */
+      .campanha-progress-header { flex-wrap: wrap; gap: 6px; padding: 6px 10px; }
+      .campanha-progress-header > div:nth-child(2) { min-width: 0; flex: 1 1 auto; }
+      #campanhaNomeHeader {
+        font-size: 13px !important; white-space: nowrap;
+        overflow: hidden; text-overflow: ellipsis;
+      }
+      #campanhaPeriodoHeader { font-size: 10px !important; }
+      .campanha-progress-header .btn { padding: 5px 9px; font-size: 11.5px; }
+      .camp-toggle-btn { padding: 5px 10px; font-size: 11.5px; }
       .campanha-progress-bar { width: 100%; order: 3; }
       .campanha-progress-text { order: 2; }
       .photo-upload-grid { grid-template-columns: 1fr; }
