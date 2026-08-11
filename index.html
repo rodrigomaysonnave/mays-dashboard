@@ -4315,7 +4315,7 @@
 
       // Buscar dados da campanha (nome, prazo, vínculo, templates de mensagem)
       const { data: camp, error: campErro } = await supabaseClient.from('campanhas')
-        .select('nome, created_at, meta_atendimento, empreendimento_id, imovel_id, lp_url, msg_template_1, msg_template_2, msg_template_3, msg2_template_1, msg2_template_2, msg2_template_3, texto_link_lp, imagem_primeira_msg, contexto_agente')
+        .select('nome, status, created_at, meta_atendimento, empreendimento_id, imovel_id, lp_url, msg_template_1, msg_template_2, msg_template_3, msg2_template_1, msg2_template_2, msg2_template_3, texto_link_lp, imagem_primeira_msg, contexto_agente')
         .eq('id', id).single();
       if (campErro) throw campErro;
       document.getElementById('campanhaNomeHeader').textContent = camp?.nome || '';
@@ -4343,6 +4343,7 @@
         textoLinkLp: camp?.texto_link_lp || null,
         imagemPrimeiraMsg: camp?.imagem_primeira_msg || null,
         contextoAgente: camp?.contexto_agente || null,
+        status: camp?.status || 'ativa',
       };
 
       campanhaLpVisitas = campanhaLeads.length
@@ -5049,7 +5050,7 @@
     }
     openLeadDetail(leadId);
     renderLeadList();
-    checkCampanhaCompleta();
+    await checkCampanhaCompleta();
   }
 
   // ── Ponte campanha → Pipeline ─────────────────────────────────
@@ -5160,9 +5161,26 @@
     resolvedToastTimer = setTimeout(() => toast.classList.remove('show'), 2600);
   }
 
-  function checkCampanhaCompleta() {
+  // Grava o status da campanha no banco quando ela fecha ou reabre.
+  // A modal de "concluída" só comemorava na tela: o status continuava 'ativa'
+  // pra sempre, então a campanha nunca aparecia na aba Concluídas e só saía
+  // de "Em andamento" se alguém marcasse na mão no formulário de edição.
+  async function marcarStatusCampanha(novoStatus) {
+    if (!campanhaAtualId || campanhaAtual?.status === novoStatus) return;
+    const { error } = await supabaseClient.from('campanhas')
+      .update({ status: novoStatus }).eq('id', campanhaAtualId);
+    if (error) { console.error('Falha ao atualizar status da campanha', error); return; }
+    if (campanhaAtual) campanhaAtual.status = novoStatus;
+  }
+
+  async function checkCampanhaCompleta() {
     const pendentes = campanhaLeads.filter(l => !l.classificacao);
-    if (pendentes.length > 0) return;
+    // Desclassificar um lead reabre a campanha: sem isso ela ficaria marcada
+    // como concluída tendo lead pendente, e some da aba onde ainda há trabalho.
+    if (pendentes.length > 0) { await marcarStatusCampanha('ativa'); return; }
+    const jaEstavaConcluida = campanhaAtual?.status === 'concluida';
+    await marcarStatusCampanha('concluida');
+    if (jaEstavaConcluida) return;   // não repete a modal a cada reclassificação
 
     // Montar funil
     const contagens = {};
