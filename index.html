@@ -4653,6 +4653,16 @@
     }
   }
 
+  // WhatsApp 3: abre a conversa e para por aí. Sem texto, sem rodízio de
+  // template, sem registrar envio e sem mexer na etapa do lead. Serve pra
+  // quando o corretor só quer olhar o perfil ou escrever à mão, e por isso
+  // é o único botão de WhatsApp que não deixa rastro nenhum no lead.
+  function abrirConversaLead(leadId) {
+    const lead = campanhaLeads.find(l => l.id === leadId);
+    if (!lead) return;
+    abrirWhatsApp(`https://wa.me/${waNumero(lead.telefone)}`);
+  }
+
   // Botão dedicado da 2ª mensagem: manda o conteúdo do empreendimento,
   // com rodízio próprio entre os até 3 modelos de msg2. Só aparece se a
   // campanha tiver ao menos um modelo preenchido.
@@ -4895,6 +4905,7 @@
           ${campanhaAtual?.imagemPrimeiraMsg ? `<button class="btn btn-ghost btn-sm" onclick="copiarImagemPrimeiraMensagem()" title="Copia a imagem — cole (Ctrl+V) depois de abrir o WhatsApp">🖼️ Copiar imagem</button>` : ''}
           <button class="btn btn-ghost btn-sm" onclick="enviarMensagemLead('${leadId}')">💬 WhatsApp 1</button>
           ${(campanhaAtual?.templates2 || []).length ? `<button class="btn btn-ghost btn-sm" onclick="enviarMensagem2('${leadId}')" title="Segunda mensagem: o conteúdo do empreendimento, com rodízio próprio">💬 WhatsApp 2</button>` : ''}
+          <button class="btn btn-ghost btn-sm" onclick="abrirConversaLead('${leadId}')" title="Abre a conversa do contato sem mensagem nenhuma. Não marca etapa nem registra envio">💬 WhatsApp 3</button>
           ${campanhaAtual?.lpUrl ? `<button class="btn btn-ghost btn-sm" onclick="enviarLinkLP('${leadId}')" title="Manda só o link da LP com o texto configurado na campanha">🔗 Enviar LP</button>` : ''}
           ${campanhaAtual?.contextoAgente && !campEtapasSemAgente.includes(lead.classificacao) ? `<button class="btn btn-ghost btn-sm" id="btnSugerirMsg" onclick="sugerirMensagem('${leadId}')" title="O agente escreve uma mensagem personalizada com base no briefing, na etapa e no histórico desse lead — você revisa antes de enviar">✨ Sugerir mensagem</button>` : ''}
           ${lead.email ? `<a href="mailto:${escHtml(lead.email)}" target="_blank" class="btn btn-ghost btn-sm">✉️ E-mail</a>` : ''}
