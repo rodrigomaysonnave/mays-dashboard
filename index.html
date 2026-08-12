@@ -1097,7 +1097,7 @@
     <h1>Maysonnave Imóveis</h1>
     <p>Dashboard operacional</p>
   </div>
-  <div id="appVersionBadge" title="Versão do Dashboard" style="font-size:11px;color:var(--text-muted);opacity:0.7;border:1px solid var(--border);border-radius:20px;padding:2px 9px;margin-left:10px;user-select:none;">v3.6</div>
+  <div id="appVersionBadge" title="Versão do Dashboard" style="font-size:11px;color:var(--text-muted);opacity:0.7;border:1px solid var(--border);border-radius:20px;padding:2px 9px;margin-left:10px;user-select:none;">v3.7</div>
   <div style="flex:1"></div>
   <div id="headerUserInfo" style="font-size:12px;color:var(--text-muted);margin-right:12px"></div>
   <button class="btn btn-ghost" id="btnLogout">Sair</button>
@@ -2711,6 +2711,21 @@
     return url.slice(0, -4) + SUFIXO_THUMB + '.jpg';
   }
 
+  // <img> de grade: pede a miniatura em vez da foto de 1400px. Uma grade com 20
+  // imóveis baixava ~4MB só pra desenhar faixas de 140px de altura, e era esse o
+  // maior consumidor de egress do plano.
+  // O onerror é obrigatório: nem toda foto tem miniatura (as convertidas pelo
+  // migrar_fotos_para_storage.mjs em que o sips falhou, e as que ainda estão em
+  // base64). Sem ele, card sem miniatura mostraria imagem quebrada em vez de
+  // simplesmente cair na foto grande. O `this.onerror=null` evita laço infinito
+  // se a foto grande também falhar.
+  function imgGradeHtml(url, alt, style = '') {
+    const mini = thumbUrl(url);
+    const volta = mini === url ? '' :
+      ` onerror="this.onerror=null;this.src='${url.replace(/'/g, "\\'")}'"`;
+    return `<img src="${mini}" alt="${alt}" loading="lazy"${style ? ` style="${style}"` : ''}${volta}>`;
+  }
+
   // O upload agora passa pela rede: sem isso a zona fica muda por segundos e
   // parece travada. Troca o texto do placeholder enquanto envia e devolve o
   // original no fim, mesmo se der erro.
@@ -2840,7 +2855,7 @@
 
     grid.innerHTML = filtered.map(item => {
       const photoHtml = item.fotoFachada
-        ? `<div class="card-photo-strip"><img src="${item.fotoFachada}" alt="Fachada" loading="lazy"></div>`
+        ? `<div class="card-photo-strip">${imgGradeHtml(item.fotoFachada, 'Fachada')}</div>`
         : '';
       const ofertaCount = ofertas.filter(o => o.imovelId === item.id && o.createdBy === (currentUser && currentUser.id)).length;
       const meuImovel = item.createdBy === (currentUser && currentUser.id) || (currentProfile && currentProfile.role === 'admin');
@@ -2933,7 +2948,7 @@
         <div class="drawer-photos${photos.length===1?' single':''}">
           ${photos.map(p => `
             <div class="photo-card" onclick="openLightbox('${p.src.replace(/'/g,"\\'")}','${escHtml(p.label)}')">
-              <img src="${p.src}" alt="${escHtml(p.label)}" loading="lazy">
+              ${imgGradeHtml(p.src, escHtml(p.label))}
               <div class="photo-card-label">${escHtml(p.label)}</div>
             </div>`).join('')}
         </div>`;
@@ -3823,7 +3838,7 @@
     const construtora = item.construtoraId ? construtorasById[item.construtoraId] : null;
     const meu = item.createdBy === (currentUser && currentUser.id) || (currentProfile && currentProfile.role === 'admin');
     const cover = empreendimentoCoverPhoto(item);
-    const photoHtml = cover ? `<div class="card-photo-strip"><img src="${cover}" alt="${escHtml(item.nome)}" loading="lazy"></div>` : '';
+    const photoHtml = cover ? `<div class="card-photo-strip">${imgGradeHtml(cover, escHtml(item.nome))}</div>` : '';
     return `
       <div class="card" data-id="${item.id}" onclick="openEmpreendimentoPage('${item.id}')">
         ${photoHtml}
